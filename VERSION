@@ -1,3 +1,4 @@
+0.24.5 — 2026-11-19 — Simplify phase manifest validation and enforce Python style in CI.
 0.24.4 — 2026-11-18 — Stabilize Git snapshot tests.
 0.24.3 — 2026-11-18 — Cross-platform maintenance release.
 0.24.2 — 2026-11-18 — Initial public source release.
