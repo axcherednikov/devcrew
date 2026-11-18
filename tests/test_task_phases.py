@@ -165,6 +165,41 @@ class PhaseManifestTests(unittest.TestCase):
             "MULTI_PHASE",
         )
 
+    def test_validation_order_and_partial_scope_normalization(self):
+        manifest = plan("MULTI_PHASE")
+        first, second = manifest["phases"]
+        receipt = dict(
+            manifest["worktree"],
+            owner="DEVCREW",
+            state="RESOLVED",
+            task_id=manifest["task_id"],
+            expected_head=manifest["worktree"]["base_sha"],
+        )
+        first_scope, second_scope = first["owned_scope"], second["owned_scope"]
+        manifest["current_phase_id"] = "unknown"
+        first["depends_on"] = ["missing"]
+        second["goal"] = ""
+        second["depends_on"] = ["P2"]
+
+        def expect_error(code, message):
+            with self.assertRaises(devcrew_phase.PhaseError) as caught:
+                devcrew_phase.validate_manifest(manifest, receipt, root)
+            self.assertEqual((caught.exception.code, caught.exception.message), (code, message))
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            expect_error("EMPTY_GOAL", "phase P2 goal must be non-empty")
+            self.assertIsNot(first["owned_scope"], first_scope)
+            self.assertIs(second["owned_scope"], second_scope)
+            second["goal"] = "Add readiness endpoint"
+            expect_error("SELF_DEPENDENCY", "phase P2 depends on itself")
+            second["depends_on"] = ["P1"]
+            expect_error("MISSING_DEPENDENCY", "phase P1 depends on missing phase missing")
+            first["depends_on"] = []
+            expect_error("INVALID_CURRENT_PHASE", "current_phase_id must identify a phase")
+            manifest["current_phase_id"] = "P1"
+            self.assertIs(devcrew_phase.validate_manifest(manifest, receipt, root), manifest)
+
     def test_v2_original_intent_allows_empty_diagnostic_requirements_only_when_pending(self):
         with tempfile.TemporaryDirectory() as root:
             task_root = pathlib.Path(root)

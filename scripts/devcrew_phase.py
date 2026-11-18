@@ -56,6 +56,9 @@ STATUSES = {
     "BLOCKED",
     "REPLAN_REQUIRED",
 }
+ACTIVE_PHASE_STATUSES = {"EXECUTING", "VERIFYING"}
+GIT_OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 MODES = {"SINGLE_PHASE", "MULTI_PHASE"}
 REVIEW_FAILURES = {"LOCAL_FIX", "SYSTEMIC_REPLAN", "OWNER_DECISION_REQUIRED"}
 
@@ -246,26 +249,51 @@ def _safe_scope(scope: Any, task_root: pathlib.Path) -> list[str]:
 def validate_manifest(
     manifest: Any, receipt: Any, task_root: pathlib.Path | None = None
 ) -> dict[str, Any]:
+    """Validate in execution order and normalize each phase's owned scope in place."""
+    task_id, mode = _validate_manifest_header(manifest)
+    worktree = _validate_manifest_worktree(manifest, receipt, task_id)
+    base = worktree["base_sha"]
+    if task_root is None:
+        task_root = pathlib.Path(worktree["task_worktree_root"])
+
+    phases = manifest.get("phases")
+    if not isinstance(phases, list) or not phases:
+        _fail("INVALID_PHASES", "phases must be a non-empty list")
+    if (mode == "SINGLE_PHASE" and len(phases) != 1) or (mode == "MULTI_PHASE" and len(phases) < 2):
+        _fail("TASK_MODE_PHASE_COUNT_MISMATCH", "task mode must match planner phase count")
+
+    by_id = {}
+    for phase in phases:
+        if not isinstance(phase, dict):
+            _fail("INVALID_PHASE", "each phase must be an object")
+        phase_id = phase.get("phase_id")
+        if not isinstance(phase_id, str) or not phase_id.strip() or not phase_id.isprintable():
+            _fail("INVALID_PHASE_ID", "phase_id must be non-empty")
+        if phase_id in by_id:
+            _fail("DUPLICATE_PHASE_ID", f"duplicate phase_id: {phase_id}")
+        by_id[phase_id] = phase
+        _validate_phase_contract(phase, task_id, phase_id)
+        _validate_phase_evidence(phase, base)
+        _validate_phase_review(phase, task_id, phase_id)
+        _validate_phase_review_history(phase, task_id, phase_id, base)
+        _validate_active_local_fix(phase, manifest, phase_id, base)
+        _validate_declared_dependencies(phase, phase_id)
+        phase["owned_scope"] = _safe_scope(phase.get("owned_scope"), task_root)
+
+    _validate_phase_graph(by_id, base)
+    if manifest["schema_version"] == 2:
+        _validate_original_intent(manifest, pathlib.Path(task_root), by_id)
+    _validate_current_phase(manifest, by_id)
+    return manifest
+
+
+def _validate_manifest_header(manifest) -> tuple[str, str]:
     if not isinstance(manifest, dict):
         _fail("INVALID_MANIFEST", "manifest must be an object")
     _require_no_candidate_transition(manifest)
     _manifest_revision(manifest)
     _contract_generation(manifest)
-
-    def reject_nonce(value):
-        if isinstance(value, dict):
-            if "receipt_nonce" in value:
-                _fail(
-                    "EPHEMERAL_RECEIPT_FIELD",
-                    "lifecycle receipt nonce must not be stored in phase manifest",
-                )
-            for child in value.values():
-                reject_nonce(child)
-        elif isinstance(value, list):
-            for child in value:
-                reject_nonce(child)
-
-    reject_nonce(manifest)
+    _reject_receipt_nonce(manifest)
     if (
         type(manifest.get("schema_version")) is not int
         or manifest["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS
@@ -281,11 +309,7 @@ def validate_manifest(
         _fail("INVALID_TASK_MODE", "task_mode must be SINGLE_PHASE or MULTI_PHASE")
     semantic = manifest.get("semantic_contract")
     capabilities = semantic.get("capabilities") if isinstance(semantic, dict) else None
-    if (
-        not isinstance(capabilities, list)
-        or not capabilities
-        or any(not isinstance(item, str) or not item.strip() for item in capabilities)
-    ):
+    if not _nonempty_text_list(capabilities):
         _fail("INVALID_SEMANTIC_CONTRACT", "planner must list semantic capabilities")
     if (mode == "SINGLE_PHASE" and len(capabilities) != 1) or (
         mode == "MULTI_PHASE" and len(capabilities) < 2
@@ -294,21 +318,34 @@ def validate_manifest(
             "SEMANTIC_CONTRACT_MISMATCH",
             "task mode must represent planner-declared semantic capabilities",
         )
+    return task_id, mode
+
+
+def _reject_receipt_nonce(value):
+    if isinstance(value, dict):
+        if "receipt_nonce" in value:
+            _fail(
+                "EPHEMERAL_RECEIPT_FIELD",
+                "lifecycle receipt nonce must not be stored in phase manifest",
+            )
+        for child in value.values():
+            _reject_receipt_nonce(child)
+    elif isinstance(value, list):
+        for child in value:
+            _reject_receipt_nonce(child)
+
+
+def _validate_manifest_worktree(manifest, receipt, task_id):
     link = manifest.get("worktree")
     if not isinstance(link, dict) or not isinstance(receipt, dict):
         _fail("WORKTREE_LINKAGE_MISMATCH", "manifest requires a fresh worktree receipt")
     base = link.get("base_sha")
-    phase_values = manifest.get("phases")
-    committed = (
-        [
-            p.get("candidate_commit")
-            for p in phase_values
-            if isinstance(p, dict) and isinstance(p.get("candidate_commit"), dict)
-        ]
-        if isinstance(phase_values, list)
-        else []
-    )
-    expected_heads = [base, *(item.get("sha") for item in committed if isinstance(item, dict))]
+    expected_heads = [base]
+    phases = manifest.get("phases")
+    if isinstance(phases, list):
+        for phase in phases:
+            if isinstance(phase, dict) and isinstance(phase.get("candidate_commit"), dict):
+                expected_heads.append(phase["candidate_commit"].get("sha"))
     expected_head_ok = any(receipt.get("expected_head") == expected for expected in expected_heads)
     if (
         receipt.get("owner") != "DEVCREW"
@@ -319,311 +356,309 @@ def validate_manifest(
         or receipt.get("branch") != link.get("branch")
         or not expected_head_ok
         or not isinstance(base, str)
-        or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", base)
+        or not GIT_OBJECT_ID.fullmatch(base)
     ):
         _fail(
             "WORKTREE_LINKAGE_MISMATCH", "manifest does not match fresh resolved worktree receipt"
         )
-    if task_root is None:
-        task_root = pathlib.Path(link["task_worktree_root"])
-    phases = manifest.get("phases")
-    if not isinstance(phases, list) or not phases:
-        _fail("INVALID_PHASES", "phases must be a non-empty list")
-    if (mode == "SINGLE_PHASE" and len(phases) != 1) or (mode == "MULTI_PHASE" and len(phases) < 2):
-        _fail("TASK_MODE_PHASE_COUNT_MISMATCH", "task mode must match planner phase count")
-    ids = []
-    by_id = {}
-    active = []
-    for phase in phases:
-        if not isinstance(phase, dict):
-            _fail("INVALID_PHASE", "each phase must be an object")
-        phase_id = phase.get("phase_id")
-        if not isinstance(phase_id, str) or not phase_id.strip() or not phase_id.isprintable():
-            _fail("INVALID_PHASE_ID", "phase_id must be non-empty")
-        if phase_id in by_id:
-            _fail("DUPLICATE_PHASE_ID", f"duplicate phase_id: {phase_id}")
-        ids.append(phase_id)
-        by_id[phase_id] = phase
-        if not isinstance(phase.get("goal"), str) or not phase["goal"].strip():
-            _fail("EMPTY_GOAL", f"phase {phase_id} goal must be non-empty")
-        if "main_scenario" in phase and (
-            not isinstance(phase["main_scenario"], str) or not phase["main_scenario"].strip()
-        ):
-            _fail("INVALID_MAIN_SCENARIO", f"phase {phase_id} main_scenario must be non-empty text")
+    return link
+
+
+def _nonempty_text_list(value) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(isinstance(item, str) and item.strip() for item in value)
+    )
+
+
+def _valid_review_finding(finding) -> bool:
+    return (
+        isinstance(finding, dict)
+        and set(finding) == {"CLASSIFICATION", "SUMMARY", "EVIDENCE"}
+        and isinstance(finding["CLASSIFICATION"], str)
+        and finding["CLASSIFICATION"] in REVIEW_FAILURES
+        and isinstance(finding["SUMMARY"], str)
+        and bool(finding["SUMMARY"].strip())
+        and _nonempty_text_list(finding["EVIDENCE"])
+    )
+
+
+def _failed_review_status(findings) -> str:
+    classifications = {finding["CLASSIFICATION"] for finding in findings}
+    if "OWNER_DECISION_REQUIRED" in classifications:
+        return "BLOCKED"
+    if "SYSTEMIC_REPLAN" in classifications:
+        return "REPLAN_REQUIRED"
+    return "LOCAL_FIX_REQUIRED"
+
+
+def _validate_phase_contract(phase, task_id, phase_id):
+    if not isinstance(phase.get("goal"), str) or not phase["goal"].strip():
+        _fail("EMPTY_GOAL", f"phase {phase_id} goal must be non-empty")
+    if "main_scenario" in phase and (
+        not isinstance(phase["main_scenario"], str) or not phase["main_scenario"].strip()
+    ):
+        _fail("INVALID_MAIN_SCENARIO", f"phase {phase_id} main_scenario must be non-empty text")
+    if not _nonempty_text_list(phase.get("acceptance")):
+        _fail("EMPTY_ACCEPTANCE", f"phase {phase_id} acceptance must be non-empty")
+    if not _nonempty_text_list(phase.get("verification")):
+        _fail("MISSING_VERIFICATION", f"phase {phase_id} requires verification")
+    if "verification_sha256" in phase:
+        required_verification(phase)
+    if not isinstance(phase.get("commit_boundary"), str) or not phase["commit_boundary"].strip():
+        _fail("MISSING_COMMIT_BOUNDARY", f"phase {phase_id} requires commit boundary")
+    subject = phase.get("commit_subject")
+    if (
+        not isinstance(subject, str)
+        or not subject.isprintable()
+        or "\n" in subject
+        or "\r" in subject
+        or not re.fullmatch(rf"type\({re.escape(task_id)}\): \S(?:.*\S)?", subject)
+    ):
+        _fail(
+            "INVALID_COMMIT_SUBJECT",
+            f"phase {phase_id} requires a printable task-bound commit subject",
+        )
+    status = phase.get("status")
+    if not isinstance(status, str) or status not in STATUSES:
+        _fail("INVALID_PHASE_STATUS", f"invalid status for {phase_id}")
+
+
+def _validate_phase_evidence(phase, base):
+    status = phase["status"]
+    if status == "READY_FOR_CLOSE":
+        evidence = phase.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            _fail(
+                "PHASE_EVIDENCE_REQUIRED",
+                "READY_FOR_CLOSE requires verified evidence references",
+            )
+        for reference in evidence:
+            _validate_evidence_ref(reference)
+    if status in {"COMMITTED", "REVIEWING", "ACCEPTED"} or phase.get("candidate_commit"):
+        candidate = phase.get("candidate_commit")
+        phase_base = phase.get("base_sha", base)
         if (
-            not isinstance(phase.get("acceptance"), list)
-            or not phase["acceptance"]
-            or any(not isinstance(x, str) or not x.strip() for x in phase["acceptance"])
-        ):
-            _fail("EMPTY_ACCEPTANCE", f"phase {phase_id} acceptance must be non-empty")
-        if (
-            not isinstance(phase.get("verification"), list)
-            or not phase["verification"]
-            or any(not isinstance(item, str) or not item.strip() for item in phase["verification"])
-        ):
-            _fail("MISSING_VERIFICATION", f"phase {phase_id} requires verification")
-        if "verification_sha256" in phase:
-            required_verification(phase)
-        if (
-            not isinstance(phase.get("commit_boundary"), str)
-            or not phase["commit_boundary"].strip()
-        ):
-            _fail("MISSING_COMMIT_BOUNDARY", f"phase {phase_id} requires commit boundary")
-        subject = phase.get("commit_subject")
-        if (
-            not isinstance(subject, str)
-            or not subject.isprintable()
-            or "\n" in subject
-            or "\r" in subject
-            or not re.fullmatch(rf"type\({re.escape(task_id)}\): \S(?:.*\S)?", subject)
+            not isinstance(candidate, dict)
+            or not GIT_OBJECT_ID.fullmatch(str(candidate.get("sha", "")))
+            or not GIT_OBJECT_ID.fullmatch(str(candidate.get("tree", "")))
+            or candidate.get("base") != phase_base
+            or not isinstance(candidate.get("evidence"), list)
+            or not candidate["evidence"]
         ):
             _fail(
-                "INVALID_COMMIT_SUBJECT",
-                f"phase {phase_id} requires a printable task-bound commit subject",
+                "PHASE_COMMIT_INCONSISTENT",
+                "COMMITTED phase requires candidate SHA, tree, base and evidence",
             )
-        status = phase.get("status")
-        if not isinstance(status, str) or status not in STATUSES:
-            _fail("INVALID_PHASE_STATUS", f"invalid status for {phase_id}")
-        if status in {"EXECUTING", "VERIFYING"}:
-            active.append(phase_id)
-        if status == "READY_FOR_CLOSE":
-            evidence = phase.get("evidence")
-            if not isinstance(evidence, list) or not evidence:
-                _fail(
-                    "PHASE_EVIDENCE_REQUIRED",
-                    "READY_FOR_CLOSE requires verified evidence references",
-                )
-            for reference in evidence:
-                _validate_evidence_ref(reference)
-        if status in {"COMMITTED", "REVIEWING", "ACCEPTED"} or phase.get("candidate_commit"):
-            candidate = phase.get("candidate_commit")
-            phase_base = phase.get("base_sha", link.get("base_sha"))
-            if (
-                not isinstance(candidate, dict)
-                or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", str(candidate.get("sha", "")))
-                or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", str(candidate.get("tree", "")))
-                or candidate.get("base") != phase_base
-                or not isinstance(candidate.get("evidence"), list)
-                or not candidate["evidence"]
-            ):
-                _fail(
-                    "PHASE_COMMIT_INCONSISTENT",
-                    "COMMITTED phase requires candidate SHA, tree, base and evidence",
-                )
-            for reference in candidate["evidence"]:
-                _validate_evidence_ref(reference)
-        if status == "ACCEPTED":
-            candidate = phase.get("candidate_commit")
-            if (
-                not isinstance(candidate, dict)
-                or phase.get("accepted_sha") != candidate.get("sha")
-                or not isinstance(phase.get("review_report"), dict)
-                or phase["review_report"].get("verdict") != "PASS"
-                or phase["review_report"].get("authoritative") is not True
-            ):
-                _fail(
-                    "PHASE_ACCEPTANCE_INCONSISTENT",
-                    "ACCEPTED phase must bind a passing report to its candidate SHA",
-                )
-            acceptance_evidence = phase.get("acceptance_evidence")
-            if not isinstance(acceptance_evidence, list) or not acceptance_evidence:
-                _fail(
-                    "PHASE_ACCEPTANCE_INCONSISTENT",
-                    "ACCEPTED phase requires its approved verification evidence",
-                )
-            for reference in acceptance_evidence:
-                _validate_evidence_ref(reference)
-        review = phase.get("review_report")
-        review_start = phase.get("review_start")
-        if status == "REVIEWING" and not isinstance(review_start, dict):
-            _fail(
-                "PHASE_REVIEW_START_REQUIRED",
-                "reviewing phase requires a persisted formal review-start",
-            )
-        if isinstance(review_start, dict) and (
-            status in {"REVIEWING", "ACCEPTED"} or review is not None
+        for reference in candidate["evidence"]:
+            _validate_evidence_ref(reference)
+    if status == "ACCEPTED":
+        candidate = phase.get("candidate_commit")
+        if (
+            not isinstance(candidate, dict)
+            or phase.get("accepted_sha") != candidate.get("sha")
+            or not isinstance(phase.get("review_report"), dict)
+            or phase["review_report"].get("verdict") != "PASS"
+            or phase["review_report"].get("authoritative") is not True
         ):
-            expected_target = {
-                "TASK_ID": task_id,
-                "PHASE_ID": phase_id,
-                "BASE_SHA": (phase.get("candidate_commit") or {}).get("base"),
-                "TARGET_SHA": (phase.get("candidate_commit") or {}).get("sha"),
-            }
-            if any(review_start.get(key) != value for key, value in expected_target.items()):
-                _fail(
-                    "PHASE_REVIEW_INCONSISTENT",
-                    "formal review-start must match the exact phase candidate",
-                )
-        if review is not None:
-            candidate = phase.get("candidate_commit")
+            _fail(
+                "PHASE_ACCEPTANCE_INCONSISTENT",
+                "ACCEPTED phase must bind a passing report to its candidate SHA",
+            )
+        acceptance_evidence = phase.get("acceptance_evidence")
+        if not isinstance(acceptance_evidence, list) or not acceptance_evidence:
+            _fail(
+                "PHASE_ACCEPTANCE_INCONSISTENT",
+                "ACCEPTED phase requires its approved verification evidence",
+            )
+        for reference in acceptance_evidence:
+            _validate_evidence_ref(reference)
+
+
+def _validate_phase_review(phase, task_id, phase_id):
+    status = phase["status"]
+    review = phase.get("review_report")
+    review_start = phase.get("review_start")
+    if status == "REVIEWING" and not isinstance(review_start, dict):
+        _fail(
+            "PHASE_REVIEW_START_REQUIRED",
+            "reviewing phase requires a persisted formal review-start",
+        )
+    if isinstance(review_start, dict) and (
+        status in {"REVIEWING", "ACCEPTED"} or review is not None
+    ):
+        expected_target = {
+            "TASK_ID": task_id,
+            "PHASE_ID": phase_id,
+            "BASE_SHA": (phase.get("candidate_commit") or {}).get("base"),
+            "TARGET_SHA": (phase.get("candidate_commit") or {}).get("sha"),
+        }
+        if any(review_start.get(key) != value for key, value in expected_target.items()):
+            _fail(
+                "PHASE_REVIEW_INCONSISTENT",
+                "formal review-start must match the exact phase candidate",
+            )
+    if review is None:
+        return
+    candidate = phase.get("candidate_commit")
+    if (
+        not isinstance(review, dict)
+        or not isinstance(candidate, dict)
+        or review.get("authoritative") is not True
+        or review.get("task_id") != task_id
+        or review.get("phase_id") != phase_id
+        or review.get("base_sha") != candidate.get("base")
+        or review.get("target_sha") != candidate.get("sha")
+        or not isinstance(review.get("verdict"), str)
+        or review.get("verdict") not in {"PASS", "FAIL"}
+        or not isinstance(review.get("findings"), list)
+        or not valid_review_advisories(review.get("advisories", []))
+        or not SHA256_HEX.fullmatch(str(review.get("sha256", "")))
+        or (review.get("verdict") == "PASS" and review.get("findings"))
+        or (review.get("verdict") == "FAIL" and not review.get("findings"))
+        or not all(_valid_review_finding(item) for item in review["findings"])
+        or not isinstance(review.get("report_ref"), str)
+    ):
+        _fail(
+            "PHASE_REVIEW_INCONSISTENT",
+            "saved review report does not match the immutable candidate",
+        )
+    if review.get("authoritative") is True and (
+        not isinstance(review.get("spawn_receipt_id"), str)
+        or not review["spawn_receipt_id"]
+        or not isinstance(review.get("agent_id"), str)
+        or not review["agent_id"]
+        or review.get("review_started") is not True
+    ):
+        _fail(
+            "PHASE_REVIEW_INCONSISTENT",
+            "authoritative report requires formal start and routed reviewer receipt",
+        )
+    if review["verdict"] == "FAIL":
+        expected_status = _failed_review_status(review["findings"])
+        if status != expected_status:
+            _fail(
+                "PHASE_REVIEW_INCONSISTENT",
+                "failed review classification does not match halted phase status",
+            )
+    elif status not in {"REVIEWING", "ACCEPTED"}:
+        _fail(
+            "PHASE_REVIEW_INCONSISTENT",
+            "passing review report requires REVIEWING or ACCEPTED status",
+        )
+
+
+def _validate_phase_review_history(phase, task_id, phase_id, base):
+    cycles = phase.get("review_cycles", [])
+    if not isinstance(cycles, list):
+        _fail("PHASE_REVIEW_INCONSISTENT", "review_cycles must be an array")
+    for cycle_index, cycle in enumerate(cycles, 1):
+        old_candidate = cycle.get("candidate_commit") if isinstance(cycle, dict) else None
+        old_review = cycle.get("review_report") if isinstance(cycle, dict) else None
+        if (
+            not isinstance(cycle, dict)
+            or cycle.get("cycle_id") != cycle_index
+            or cycle.get("backup_ref") != _rejected_candidate_ref(task_id, phase_id, cycle_index)
+            or not isinstance(old_candidate, dict)
+            or old_candidate.get("base") != (phase.get("base_sha") or base)
+            or not GIT_OBJECT_ID.fullmatch(str(old_candidate.get("sha", "")))
+            or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", str(old_candidate.get("tree", "")))
+            or not isinstance(old_review, dict)
+            or old_review.get("target_sha") != old_candidate.get("sha")
+            or old_review.get("base_sha") != old_candidate.get("base")
+            or old_review.get("phase_id") != phase_id
+            or old_review.get("task_id") != task_id
+            or old_review.get("verdict") != "FAIL"
+            or not SHA256_HEX.fullmatch(str(old_review.get("sha256", "")))
+            or not isinstance(old_review.get("findings"), list)
+            or not old_review["findings"]
+        ):
+            _fail(
+                "PHASE_REVIEW_INCONSISTENT",
+                "review cycle history must bind an immutable failed report to its candidate",
+            )
+        if "owner_decision" in cycle and (
+            not isinstance(cycle["owner_decision"], str) or not cycle["owner_decision"].strip()
+        ):
+            _fail("PHASE_REVIEW_INCONSISTENT", "archived owner decision must be nonempty text")
+        completion = cycle.get("systemic_replan_completion")
+        classes = {
+            item.get("CLASSIFICATION") for item in old_review["findings"] if isinstance(item, dict)
+        }
+        if "SYSTEMIC_REPLAN" in classes and cycle.get("review_correction") is not True:
             if (
-                not isinstance(review, dict)
-                or not isinstance(candidate, dict)
-                or review.get("authoritative") is not True
-                or review.get("task_id") != task_id
-                or review.get("phase_id") != phase_id
-                or review.get("base_sha") != candidate.get("base")
-                or review.get("target_sha") != candidate.get("sha")
-                or not isinstance(review.get("verdict"), str)
-                or review.get("verdict") not in {"PASS", "FAIL"}
-                or not isinstance(review.get("findings"), list)
-                or not valid_review_advisories(review.get("advisories", []))
-                or not re.fullmatch(r"[0-9a-f]{64}", str(review.get("sha256", "")))
-                or (review.get("verdict") == "PASS" and review.get("findings"))
-                or (review.get("verdict") == "FAIL" and not review.get("findings"))
-                or any(
-                    not isinstance(item, dict)
-                    or set(item) != {"CLASSIFICATION", "SUMMARY", "EVIDENCE"}
-                    or not isinstance(item.get("CLASSIFICATION"), str)
-                    or item.get("CLASSIFICATION") not in REVIEW_FAILURES
-                    or not isinstance(item.get("SUMMARY"), str)
-                    or not item["SUMMARY"].strip()
-                    or not isinstance(item.get("EVIDENCE"), list)
-                    or not item["EVIDENCE"]
-                    or any(not isinstance(ref, str) or not ref.strip() for ref in item["EVIDENCE"])
-                    for item in review.get("findings", [])
-                )
-                or not isinstance(review.get("report_ref"), str)
+                not isinstance(completion, dict)
+                or completion.get("task_id") != task_id
+                or completion.get("phase_id") != phase_id
+                or completion.get("failed_candidate_sha") != old_candidate["sha"]
+                or completion.get("report_sha256") != old_review.get("sha256")
+                or completion.get("planner_dispatch", {}).get("base_sha") != old_candidate["sha"]
             ):
                 _fail(
                     "PHASE_REVIEW_INCONSISTENT",
-                    "saved review report does not match the immutable candidate",
+                    "systemic replan history lacks matching completion",
                 )
-            if review.get("authoritative") is True and (
-                not isinstance(review.get("spawn_receipt_id"), str)
-                or not review["spawn_receipt_id"]
-                or not isinstance(review.get("agent_id"), str)
-                or not review["agent_id"]
-                or review.get("review_started") is not True
-            ):
-                _fail(
-                    "PHASE_REVIEW_INCONSISTENT",
-                    "authoritative report requires formal start and routed reviewer receipt",
-                )
-            if review["verdict"] == "FAIL":
-                classes = {item["CLASSIFICATION"] for item in review["findings"]}
-                expected_status = (
-                    "BLOCKED"
-                    if "OWNER_DECISION_REQUIRED" in classes
-                    else "REPLAN_REQUIRED"
-                    if "SYSTEMIC_REPLAN" in classes
-                    else "LOCAL_FIX_REQUIRED"
-                )
-                if status != expected_status:
-                    _fail(
-                        "PHASE_REVIEW_INCONSISTENT",
-                        "failed review classification does not match halted phase status",
-                    )
-            elif status not in {"REVIEWING", "ACCEPTED"}:
-                _fail(
-                    "PHASE_REVIEW_INCONSISTENT",
-                    "passing review report requires REVIEWING or ACCEPTED status",
-                )
-        cycles = phase.get("review_cycles", [])
-        if not isinstance(cycles, list):
-            _fail("PHASE_REVIEW_INCONSISTENT", "review_cycles must be an array")
-        for cycle_index, cycle in enumerate(cycles, 1):
-            old_candidate = cycle.get("candidate_commit") if isinstance(cycle, dict) else None
-            old_review = cycle.get("review_report") if isinstance(cycle, dict) else None
-            if (
-                not isinstance(cycle, dict)
-                or cycle.get("cycle_id") != cycle_index
-                or cycle.get("backup_ref")
-                != _rejected_candidate_ref(task_id, phase_id, cycle_index)
-                or not isinstance(old_candidate, dict)
-                or old_candidate.get("base") != (phase.get("base_sha") or base)
-                or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", str(old_candidate.get("sha", "")))
-                or not re.fullmatch(
-                    r"[0-9a-f]{40}|[0-9a-f]{64}", str(old_candidate.get("tree", ""))
-                )
-                or not isinstance(old_review, dict)
-                or old_review.get("target_sha") != old_candidate.get("sha")
-                or old_review.get("base_sha") != old_candidate.get("base")
-                or old_review.get("phase_id") != phase_id
-                or old_review.get("task_id") != task_id
-                or old_review.get("verdict") != "FAIL"
-                or not re.fullmatch(r"[0-9a-f]{64}", str(old_review.get("sha256", "")))
-                or not isinstance(old_review.get("findings"), list)
-                or not old_review["findings"]
-            ):
-                _fail(
-                    "PHASE_REVIEW_INCONSISTENT",
-                    "review cycle history must bind an immutable failed report to its candidate",
-                )
-            if "owner_decision" in cycle and (
-                not isinstance(cycle["owner_decision"], str) or not cycle["owner_decision"].strip()
-            ):
-                _fail("PHASE_REVIEW_INCONSISTENT", "archived owner decision must be nonempty text")
-            completion = cycle.get("systemic_replan_completion")
-            classes = {
-                item.get("CLASSIFICATION")
-                for item in old_review["findings"]
-                if isinstance(item, dict)
-            }
-            if "SYSTEMIC_REPLAN" in classes and cycle.get("review_correction") is not True:
-                if (
-                    not isinstance(completion, dict)
-                    or completion.get("task_id") != task_id
-                    or completion.get("phase_id") != phase_id
-                    or completion.get("failed_candidate_sha") != old_candidate["sha"]
-                    or completion.get("report_sha256") != old_review.get("sha256")
-                    or completion.get("planner_dispatch", {}).get("base_sha")
-                    != old_candidate["sha"]
-                ):
-                    _fail(
-                        "PHASE_REVIEW_INCONSISTENT",
-                        "systemic replan history lacks matching completion",
-                    )
-            elif completion is not None:
-                _fail(
-                    "PHASE_REVIEW_INCONSISTENT",
-                    "systemic replan completion is attached to a non-systemic review",
-                )
-        local_fix = phase.get("active_local_fix")
-        if local_fix is not None:
-            if (
-                phase_id != manifest.get("current_phase_id")
-                or status
-                not in {"EXECUTING", "VERIFYING", "READY_FOR_CLOSE", "BLOCKED", "REPLAN_REQUIRED"}
-                or not isinstance(local_fix, dict)
-                or set(local_fix) != {"cycle_id", "rejected_candidate_sha", "findings"}
-                or type(local_fix.get("cycle_id")) is not int
-                or local_fix["cycle_id"] < 1
-                or local_fix["cycle_id"] > len(cycles)
-            ):
-                _fail(
-                    "PHASE_LOCAL_FIX_INCONSISTENT",
-                    "active local fix must belong to the current writer phase and an archived cycle",
-                )
-            archived = cycles[local_fix["cycle_id"] - 1]
-            cycle_candidate = archived["candidate_commit"]
-            cycle_review = archived["review_report"]
-            if (
-                local_fix["rejected_candidate_sha"] != cycle_candidate["sha"]
-                or local_fix["findings"] != cycle_review["findings"]
-                or cycle_candidate["base"] != (phase.get("base_sha") or base)
-                or any(item.get("CLASSIFICATION") != "LOCAL_FIX" for item in local_fix["findings"])
-            ):
-                _fail(
-                    "PHASE_LOCAL_FIX_INCONSISTENT",
-                    "active local fix must exactly match its archived local-fix review cycle",
-                )
-        deps = phase.get("depends_on")
-        if not isinstance(deps, list) or any(not isinstance(dep, str) for dep in deps):
-            _fail("INVALID_DEPENDENCIES", f"phase {phase_id} dependencies must be a list")
-        if len(deps) != len(set(deps)):
-            _fail("DUPLICATE_DEPENDENCY", f"phase {phase_id} has duplicate dependencies")
-        if phase_id in deps:
-            _fail("SELF_DEPENDENCY", f"phase {phase_id} depends on itself")
-        phase["owned_scope"] = _safe_scope(phase.get("owned_scope"), task_root)
+        elif completion is not None:
+            _fail(
+                "PHASE_REVIEW_INCONSISTENT",
+                "systemic replan completion is attached to a non-systemic review",
+            )
+
+
+def _validate_active_local_fix(phase, manifest, phase_id, base):
+    local_fix = phase.get("active_local_fix")
+    if local_fix is None:
+        return
+    status = phase["status"]
+    cycles = phase.get("review_cycles", [])
+    if (
+        phase_id != manifest.get("current_phase_id")
+        or status not in {"EXECUTING", "VERIFYING", "READY_FOR_CLOSE", "BLOCKED", "REPLAN_REQUIRED"}
+        or not isinstance(local_fix, dict)
+        or set(local_fix) != {"cycle_id", "rejected_candidate_sha", "findings"}
+        or type(local_fix.get("cycle_id")) is not int
+        or local_fix["cycle_id"] < 1
+        or local_fix["cycle_id"] > len(cycles)
+    ):
+        _fail(
+            "PHASE_LOCAL_FIX_INCONSISTENT",
+            "active local fix must belong to the current writer phase and an archived cycle",
+        )
+    archived = cycles[local_fix["cycle_id"] - 1]
+    cycle_candidate = archived["candidate_commit"]
+    cycle_review = archived["review_report"]
+    if (
+        local_fix["rejected_candidate_sha"] != cycle_candidate["sha"]
+        or local_fix["findings"] != cycle_review["findings"]
+        or cycle_candidate["base"] != (phase.get("base_sha") or base)
+        or any(item.get("CLASSIFICATION") != "LOCAL_FIX" for item in local_fix["findings"])
+    ):
+        _fail(
+            "PHASE_LOCAL_FIX_INCONSISTENT",
+            "active local fix must exactly match its archived local-fix review cycle",
+        )
+
+
+def _validate_declared_dependencies(phase, phase_id):
+    deps = phase.get("depends_on")
+    if not isinstance(deps, list) or any(not isinstance(dep, str) for dep in deps):
+        _fail("INVALID_DEPENDENCIES", f"phase {phase_id} dependencies must be a list")
+    if len(deps) != len(set(deps)):
+        _fail("DUPLICATE_DEPENDENCY", f"phase {phase_id} has duplicate dependencies")
+    if phase_id in deps:
+        _fail("SELF_DEPENDENCY", f"phase {phase_id} depends on itself")
+
+
+def _validate_phase_graph(by_id, base):
+    first_phase_id = next(iter(by_id))
     for phase_id, phase in by_id.items():
         phase_base = phase.get("base_sha")
         if phase_base is not None and (
-            not isinstance(phase_base, str)
-            or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", phase_base)
+            not isinstance(phase_base, str) or not GIT_OBJECT_ID.fullmatch(phase_base)
         ):
             _fail("INVALID_PHASE_BASE", f"phase {phase_id} base_sha must be a full Git object ID")
-        if phase_id == ids[0] and phase_base is not None and phase_base != base:
+        if phase_id == first_phase_id and phase_base is not None and phase_base != base:
             _fail("INVALID_PHASE_BASE", "first phase base must equal the original task base SHA")
         for dep in phase["depends_on"]:
             if dep not in by_id:
@@ -641,33 +676,34 @@ def validate_manifest(
         visiting.remove(item)
         visited.add(item)
 
-    for item in ids:
+    for item in by_id:
         visit(item)
-    if manifest["schema_version"] == 2:
-        _validate_original_intent(manifest, pathlib.Path(task_root), by_id)
+
+
+def _validate_current_phase(manifest, by_id):
     current = manifest.get("current_phase_id")
     if not isinstance(current, str) or current not in by_id:
         _fail("INVALID_CURRENT_PHASE", "current_phase_id must identify a phase")
-    current_index = ids.index(current)
-    if any(by_id[phase_id]["status"] != "ACCEPTED" for phase_id in ids[:current_index]):
+    phase_ids = list(by_id)
+    current_index = phase_ids.index(current)
+    earlier_phases = phase_ids[:current_index]
+    if any(by_id[phase_id]["status"] != "ACCEPTED" for phase_id in earlier_phases):
         _fail("CLOSE_GATE_REQUIRED", "all earlier phases must be ACCEPTED before advancing")
     if any(
-        dep not in ids[:current_index] or by_id[dep]["status"] != "ACCEPTED"
+        dep not in earlier_phases or by_id[dep]["status"] != "ACCEPTED"
         for dep in by_id[current]["depends_on"]
     ):
         _fail("CLOSE_GATE_REQUIRED", "current phase dependencies must be ACCEPTED")
+    active = [
+        phase_id for phase_id, phase in by_id.items() if phase["status"] in ACTIVE_PHASE_STATUSES
+    ]
     if len(active) > 1 or (active and active[0] != current):
         _fail("MULTIPLE_ACTIVE_PHASES", "only current phase may be active")
-    if any(
-        ids.index(phase_id) > current_index and phase["status"] != "PLANNED"
-        for phase_id, phase in by_id.items()
-    ):
+    if any(by_id[phase_id]["status"] != "PLANNED" for phase_id in phase_ids[current_index + 1 :]):
         _fail(
             "NONCURRENT_PHASE_ADVANCED",
             "later phases must remain PLANNED until explicitly advanced",
         )
-    # Before an acceptance gate exists, phase 1 is the sole dispatchable phase.
-    return manifest
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -6909,17 +6945,7 @@ def submit_review(
     elif "INTENT_REVIEW" in report:
         _fail("INVALID_INTENT_REVIEW", "INTENT_REVIEW is allowed only on the final schema-v2 phase")
     for finding in findings:
-        if (
-            not isinstance(finding, dict)
-            or set(finding) != {"CLASSIFICATION", "SUMMARY", "EVIDENCE"}
-            or not isinstance(finding.get("CLASSIFICATION"), str)
-            or finding.get("CLASSIFICATION") not in REVIEW_FAILURES
-            or not isinstance(finding.get("SUMMARY"), str)
-            or not finding["SUMMARY"].strip()
-            or not isinstance(finding.get("EVIDENCE"), list)
-            or not finding["EVIDENCE"]
-            or any(not isinstance(item, str) or not item.strip() for item in finding["EVIDENCE"])
-        ):
+        if not _valid_review_finding(finding):
             _fail(
                 "INVALID_PHASE_REVIEW",
                 "each finding needs CLASSIFICATION, SUMMARY and nonempty EVIDENCE",
@@ -6973,14 +6999,7 @@ def submit_review(
     }
     if verdict == "FAIL":
         updated_phase["review_start"] = None
-        classes = {item["CLASSIFICATION"] for item in findings}
-        updated_phase["status"] = (
-            "BLOCKED"
-            if "OWNER_DECISION_REQUIRED" in classes
-            else "REPLAN_REQUIRED"
-            if "SYSTEMIC_REPLAN" in classes
-            else "LOCAL_FIX_REQUIRED"
-        )
+        updated_phase["status"] = _failed_review_status(findings)
     validate_manifest(updated, receipt, task_root)
     _atomic_json(path, updated)
     return {
