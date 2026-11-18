@@ -23,7 +23,7 @@ Run commands from the repository root with Python 3.11+ and Git available. There
 
 ## Coding Style & Naming Conventions
 
-Use four-space Python indentation, `snake_case` functions and modules, and `UPPER_CASE` constants. Follow surrounding quoting and formatting; no formatter or linter configuration is checked in. Keep workflow directory names hyphenated (`devcrew-task`). Preserve existing frontmatter and JSON/TOML/YAML schemas. Keep workflow instructions, runtime behavior, and documented contracts consistent.
+Use four-space Python indentation, `snake_case` functions and modules, and `UPPER_CASE` constants. Install the development tools with `python3 -m pip install -r requirements-dev.txt` in a virtual environment. Run `ruff format .` to format Python and `ruff check .` to lint it. CI checks both using the repository configuration in `pyproject.toml`. Keep workflow directory names hyphenated (`devcrew-task`). Preserve existing frontmatter and JSON/TOML/YAML schemas. Keep workflow instructions, runtime behavior, and documented contracts consistent.
 
 ## Testing Guidelines
 
