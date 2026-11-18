@@ -4,10 +4,12 @@
   <img src="docs/assets/devcrew-logo.png" alt="DevCrew logo with three robots" width="320">
 </p>
 
-[![Tests on master](https://img.shields.io/github/actions/workflow/status/axcherednikov/devcrew/checks.yml?branch=master&label=tests&logo=github)](https://github.com/axcherednikov/devcrew/actions/workflows/checks.yml?query=branch%3Amaster)
-[![Latest release](https://img.shields.io/github/v/release/axcherednikov/devcrew?color=blue)](https://github.com/axcherednikov/devcrew/releases/latest)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](#requirements)
-[![MIT license](https://img.shields.io/github/license/axcherednikov/devcrew?color=brightgreen)](LICENSE)
+<p align="center">
+  <a href="https://github.com/axcherednikov/devcrew/actions/workflows/checks.yml?query=branch%3Amaster"><img src="https://img.shields.io/github/actions/workflow/status/axcherednikov/devcrew/checks.yml?branch=master&amp;label=tests&amp;logo=github" alt="Tests on master"></a>
+  <a href="https://github.com/axcherednikov/devcrew/releases/latest"><img src="https://img.shields.io/github/v/release/axcherednikov/devcrew?color=blue" alt="Latest release"></a>
+  <a href="#requirements"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.11+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/axcherednikov/devcrew?color=brightgreen" alt="MIT license"></a>
+</p>
 
 DevCrew is a development harness for Codex. It helps you plan, implement, test, and review changes in a Git repository.
 
