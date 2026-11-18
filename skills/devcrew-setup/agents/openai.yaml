@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Project Setup"
+  short_description: "Initialize project context and agent roles"
+  default_prompt: "Use $devcrew-setup to set up DevCrew in this project and verify the installation."

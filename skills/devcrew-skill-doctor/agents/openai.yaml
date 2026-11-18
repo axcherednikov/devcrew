@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Skill Doctor"
+  short_description: "Diagnose and repair skills and routing"
+  default_prompt: "Use $devcrew-skill-doctor to inspect and repair the affected skills and routing."

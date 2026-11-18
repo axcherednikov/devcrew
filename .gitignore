@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+!AGENTS.md
+/.codex/
+/memory/engineering-requirements.json.lock
+.DS_Store
+/.idea/
+/tmp/
+.env
+.env.*
+!.env.example

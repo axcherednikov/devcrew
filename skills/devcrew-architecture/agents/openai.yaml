@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Architecture Review"
+  short_description: "Assess the design of an existing system"
+  default_prompt: "Use $devcrew-architecture to assess this subsystem and prioritize improvements using code evidence."

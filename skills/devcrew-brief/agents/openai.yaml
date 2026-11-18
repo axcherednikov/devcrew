@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Task Brief"
+  short_description: "Define scope and observable acceptance criteria"
+  default_prompt: "Use $devcrew-brief to prepare and check a development brief."

@@ -1,0 +1,27 @@
+{
+  "name": "devcrew",
+  "version": "0.24.2",
+  "description": "A development harness for Codex that helps you plan, implement, test, and review changes in your repository.",
+  "author": {
+    "name": "DevCrew contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DevCrew",
+    "shortDescription": "Development harness for Codex",
+    "longDescription": "Plan a change, run the project checks, review the result, and resume work with the evidence stored in your repository.",
+    "developerName": "DevCrew contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Planning",
+      "Review",
+      "Editing"
+    ],
+    "defaultPrompt": [
+      "Use $devcrew to choose a workflow for my request.",
+      "Use $devcrew-setup to prepare this project.",
+      "Use $devcrew-review to review my changes."
+    ]
+  },
+  "license": "MIT"
+}

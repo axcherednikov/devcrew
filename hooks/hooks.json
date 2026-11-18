@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/user_prompt_submit.py\"",
+            "timeout": 5,
+            "statusMessage": "DevCrew: assess project feedback",
+            "commandWindows": "py -3 -I -B -X utf8 -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'hooks','user_prompt_submit.py'),run_name='__main__')\""
+          },
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/project_sync_notice.py\"",
+            "timeout": 5,
+            "statusMessage": "DevCrew: verify project synchronization",
+            "commandWindows": "py -3 -I -B -X utf8 -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'hooks','project_sync_notice.py'),run_name='__main__')\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/project_sync_notice.py\"",
+            "timeout": 5,
+            "statusMessage": "DevCrew: verify project synchronization",
+            "commandWindows": "py -3 -I -B -X utf8 -c \"import os,runpy; runpy.run_path(os.path.join(os.environ['PLUGIN_ROOT'],'hooks','project_sync_notice.py'),run_name='__main__')\""
+          }
+        ]
+      }
+    ]
+  }
+}

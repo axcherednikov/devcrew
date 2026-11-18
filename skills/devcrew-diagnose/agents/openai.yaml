@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Diagnosis"
+  short_description: "Trace a failure to its cause"
+  default_prompt: "Use $devcrew-diagnose to find the cause of this failure without changing production code."

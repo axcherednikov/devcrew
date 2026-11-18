@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Handoff"
+  short_description: "Summarize verified changes for the next audience"
+  default_prompt: "Use $devcrew-handoff to prepare a handoff from the verified changes."

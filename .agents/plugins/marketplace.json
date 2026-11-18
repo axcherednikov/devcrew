@@ -1,0 +1,12 @@
+{
+  "name": "devcrew-community",
+  "interface": { "displayName": "DevCrew" },
+  "plugins": [
+    {
+      "name": "devcrew",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    }
+  ]
+}

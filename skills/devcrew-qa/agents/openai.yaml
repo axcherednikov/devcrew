@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — QA"
+  short_description: "Run local QA and inspect saved evidence"
+  default_prompt: "Use $devcrew-qa to run or inspect a bounded local QA session."

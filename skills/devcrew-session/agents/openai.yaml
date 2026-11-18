@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Session Handoff"
+  short_description: "Save task context for another session"
+  default_prompt: "Use $devcrew-session to save the current state so I can resume this task."

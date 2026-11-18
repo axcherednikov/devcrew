@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew"
+  short_description: "Choose a workflow for a development request"
+  default_prompt: "Use $devcrew to choose the appropriate workflow for my request."

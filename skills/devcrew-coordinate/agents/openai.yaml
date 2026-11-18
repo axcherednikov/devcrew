@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Task Coordination"
+  short_description: "Coordinate existing tasks and their dependencies"
+  default_prompt: "Use $devcrew-coordinate to coordinate the existing tasks and verify their results."

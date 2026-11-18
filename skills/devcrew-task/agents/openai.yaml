@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Task Implementation"
+  short_description: "Implement changes and verify the result"
+  default_prompt: "Use $devcrew-task to implement this change and verify the result."

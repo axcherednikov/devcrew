@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Commit Message"
+  short_description: "Draft a one-line message for a selected change"
+  default_prompt: "Use $devcrew-commit-message to draft a message for the selected changes without committing."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Product Onboarding"
+  short_description: "Map the user flows of an existing product"
+  default_prompt: "Use $devcrew-product-onboard to map this product’s user flows and record what the evidence establishes."

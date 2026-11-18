@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Autopilot"
+  short_description: "Run an existing task graph through review"
+  default_prompt: "Use $devcrew-autopilot to execute the requested phase of the existing task graph and verify each completed task."

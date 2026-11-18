@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevCrew — Code Review"
+  short_description: "Review changes and verify findings"
+  default_prompt: "Use $devcrew-review to review the selected changes in context."
