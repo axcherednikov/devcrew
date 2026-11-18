@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.4 — 2026-11-18
+
+- Prevent background Git maintenance from racing with snapshot restores in candidate and review tests.
+
 ## 0.24.3 — 2026-11-18
 
 - Fix Windows reserved-name checks on Python 3.15 while retaining support for Python 3.11 and 3.12. Native hook tests now report the reason when a hook blocks.
