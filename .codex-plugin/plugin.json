@@ -1,6 +1,6 @@
 {
   "name": "devcrew",
-  "version": "0.24.2",
+  "version": "0.24.3",
   "description": "A development harness for Codex that helps you plan, implement, test, and review changes in your repository.",
   "author": {
     "name": "DevCrew contributors"
