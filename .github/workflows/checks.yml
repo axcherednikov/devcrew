@@ -19,6 +19,9 @@ jobs:
       - run: python -X utf8 -B scripts/check_package.py
       - if: runner.os != 'Windows'
         run: make test
+      - name: Check the Python launcher used by native hooks
+        if: runner.os == 'Windows'
+        run: py -3 -I -B -X utf8 -c "import sys; print(sys.executable, sys.version); sys.exit(sys.version_info < (3, 11))"
       - name: Verify native Windows hooks, file locks, process trees, and CLI workflows
         if: runner.os == 'Windows'
         env:
