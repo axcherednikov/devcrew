@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+
+from loopback_http import ThreadingLoopbackHTTPServer
 
 
 PAGE = """<!doctype html>
@@ -148,7 +150,7 @@ def main() -> None:
     parser.add_argument("--optimistic", action="store_true")
     args = parser.parse_args()
     Handler.store = Store(args.optimistic)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    server = ThreadingLoopbackHTTPServer(("127.0.0.1", args.port), Handler)
     server.serve_forever()
 
 

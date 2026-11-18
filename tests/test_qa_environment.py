@@ -23,9 +23,18 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"
+FIXTURES = ROOT / "tests" / "fixtures"
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(FIXTURES))
 
 import devcrew_qa_environment  # noqa: E402
+from loopback_http import ThreadingLoopbackHTTPServer  # noqa: E402
+
+# The inline service commands run with the temporary project as their cwd.
+IMPORT_LOOPBACK_SERVER = (
+    f"import sys\nsys.path.insert(0, {str(FIXTURES)!r})\n"
+    "from loopback_http import LoopbackHTTPServer"
+)
 
 PATHS = {"context": "docs/context.md", "tasks": ".codex/tasks", "sessions": ".codex/sessions",
          "memory": "memory", "checks": ".codex/checks"}
@@ -77,6 +86,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
 def _http_service_code(port, label, *, delay=0.0, child_marker=None, response=200,
                        redirect_to=None, hang=False, stay_on_bind_failure=False):
     lines = [
+        IMPORT_LOOPBACK_SERVER,
         "import http.server, socket, subprocess, sys, time",
         f"open('order.log', 'a').write({label!r} + '\\n')",
     ]
@@ -104,7 +114,7 @@ def _http_service_code(port, label, *, delay=0.0, child_marker=None, response=20
             "        time.sleep(30)",
             "    def log_message(self, *args):",
             "        pass",
-            f"http.server.HTTPServer(('127.0.0.1', {port}), H).serve_forever()",
+            f"LoopbackHTTPServer(('127.0.0.1', {port}), H).serve_forever()",
         ]
         return [sys.executable, "-c", "\n".join(lines)]
     lines += [
@@ -118,7 +128,7 @@ def _http_service_code(port, label, *, delay=0.0, child_marker=None, response=20
         "        self.end_headers()",
         "    def log_message(self, *args):",
         "        pass",
-        f"http.server.HTTPServer(('127.0.0.1', {port}), H).serve_forever()",
+        f"LoopbackHTTPServer(('127.0.0.1', {port}), H).serve_forever()",
     ]
     return [sys.executable, "-c", "\n".join(lines)]
 
@@ -288,8 +298,14 @@ class QaEnvironmentTests(unittest.TestCase):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
 
+    def test_loopback_fixture_binds_without_reverse_dns(self):
+        with mock.patch.object(socket, "getfqdn", side_effect=AssertionError("unexpected DNS lookup")):
+            with ThreadingLoopbackHTTPServer(("127.0.0.1", 0), QuietHandler) as server:
+                self.assertEqual((server.server_name, server.server_port), server.server_address)
+                self.assertGreater(server.server_port, 0)
+
     def start_foreign_server(self, handler=QuietHandler, *, port=0):
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+        server = ThreadingLoopbackHTTPServer(("127.0.0.1", port), handler)
         server.history = []
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -592,6 +608,7 @@ class QaEnvironmentTests(unittest.TestCase):
         hits = self.project / "service-hits.log"
         port = self.unused_port()
         command = [sys.executable, "-c",
+                   f"{IMPORT_LOOPBACK_SERVER}\n"
                    "import http.server, pathlib\n"
                    "class H(http.server.BaseHTTPRequestHandler):\n"
                    "    def do_GET(self):\n"
@@ -600,7 +617,7 @@ class QaEnvironmentTests(unittest.TestCase):
                    "        self.end_headers()\n"
                    "    def log_message(self, *args):\n"
                    "        pass\n"
-                   f"http.server.HTTPServer(('127.0.0.1', {port}), H).serve_forever()"]
+                   f"LoopbackHTTPServer(('127.0.0.1', {port}), H).serve_forever()"]
         profile = self.profile(port, resource="proxy-check", services=[{
             "id": "api", "command": command, "depends_on": [],
             "readiness": {"url": f"http://127.0.0.1:{port}/", "status": 200,
@@ -841,6 +858,7 @@ class QaEnvironmentTests(unittest.TestCase):
         profile_data["services"][0]["command"] = [
             sys.executable, "-c",
             presence.format(target="env-service.txt") + "\n"
+            f"{IMPORT_LOOPBACK_SERVER}\n"
             "import http.server\n"
             "class H(http.server.BaseHTTPRequestHandler):\n"
             "    def do_GET(self):\n"
@@ -848,7 +866,7 @@ class QaEnvironmentTests(unittest.TestCase):
             "        self.end_headers()\n"
             "    def log_message(self, *args):\n"
             "        pass\n"
-            f"http.server.HTTPServer(('127.0.0.1', {port}), H).serve_forever()"]
+            f"LoopbackHTTPServer(('127.0.0.1', {port}), H).serve_forever()"]
         profile.write_text(json.dumps(profile_data))
 
         env = {"QA_TEST_ALLOWED": secret, "QA_UNLISTED": unlisted}
@@ -1258,6 +1276,7 @@ class QaEnvironmentTests(unittest.TestCase):
         server = self.start_foreign_server(handler=AnswerThenRelease, port=port)
         server.release = lambda: (server.shutdown(), server.server_close())
         service = [sys.executable, "-c",
+                   f"{IMPORT_LOOPBACK_SERVER}\n"
                    "import http.server, time\n"
                    "class H(http.server.BaseHTTPRequestHandler):\n"
                    "    def do_GET(self):\n"
@@ -1267,7 +1286,7 @@ class QaEnvironmentTests(unittest.TestCase):
                    "deadline = time.monotonic() + 30\n"
                    "while True:\n"
                    "    try:\n"
-                   f"        server = http.server.HTTPServer(('127.0.0.1', {port}), H)\n"
+                   f"        server = LoopbackHTTPServer(('127.0.0.1', {port}), H)\n"
                    "        break\n"
                    "    except OSError:\n"
                    "        if time.monotonic() > deadline:\n"
@@ -1636,13 +1655,14 @@ class QaEnvironmentTests(unittest.TestCase):
     def test_readiness_refuses_a_listener_in_another_group_of_the_same_session(self):
         port = self.unused_port()
         worker_code = (
+            f"{IMPORT_LOOPBACK_SERVER}\n"
             "import http.server\n"
             "class H(http.server.BaseHTTPRequestHandler):\n"
             "    def do_GET(self):\n"
             "        self.send_response(200); self.end_headers()\n"
             "    def log_message(self, *args):\n"
             "        pass\n"
-            f"http.server.HTTPServer(('127.0.0.1', {port}), H).serve_forever()\n")
+            f"LoopbackHTTPServer(('127.0.0.1', {port}), H).serve_forever()\n")
         command = [
             sys.executable, "-c",
             "import os, pathlib, subprocess, sys, time\n"
@@ -1674,13 +1694,14 @@ class QaEnvironmentTests(unittest.TestCase):
     def test_dependency_that_exits_during_another_service_start_is_not_ready(self):
         db_port, api_port = self.unused_port(), self.unused_port()
         db_code = [
+            IMPORT_LOOPBACK_SERVER,
             "import http.server, threading, time",
             "class H(http.server.BaseHTTPRequestHandler):",
             "    def do_GET(self):",
             "        self.send_response(200); self.end_headers(); self.wfile.write(b'ready')",
             "    def log_message(self, *args):",
             "        pass",
-            f"server = http.server.HTTPServer(('127.0.0.1', {db_port}), H)",
+            f"server = LoopbackHTTPServer(('127.0.0.1', {db_port}), H)",
             "threading.Thread(target=server.serve_forever, daemon=True).start()",
             "time.sleep(1.5)",
             "server.shutdown()",

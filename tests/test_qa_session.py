@@ -14,6 +14,9 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"
+sys.path.insert(0, str(ROOT / "tests" / "fixtures"))
+
+from loopback_http import ThreadingLoopbackHTTPServer  # noqa: E402
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -143,7 +146,7 @@ class QaSessionTests(unittest.TestCase):
     def setUp(self):
         Handler.hits = []
         Handler.raw_responses = {}
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = ThreadingLoopbackHTTPServer(("127.0.0.1", 0), Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.temp = tempfile.TemporaryDirectory()

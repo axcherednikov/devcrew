@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests" / "fixtures"))
 
 import qa_web_app  # noqa: E402
+from loopback_http import ThreadingLoopbackHTTPServer  # noqa: E402
 
 
 def _png(width: int, height: int) -> bytes:
@@ -38,8 +39,7 @@ class Stand:
     def __init__(self, optimistic: bool = False):
         self.store = qa_web_app.Store(optimistic)
         handler = type("Handler", (qa_web_app.Handler,), {"store": self.store})
-        from http.server import ThreadingHTTPServer
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        self.server = ThreadingLoopbackHTTPServer(("127.0.0.1", 0), handler)
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
