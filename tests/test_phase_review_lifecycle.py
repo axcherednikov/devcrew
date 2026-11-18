@@ -63,6 +63,8 @@ class PhaseReviewLifecycleTests(unittest.TestCase):
         self.host = pathlib.Path(self.temp.name) / "host"
         self.host.mkdir()
         self.git(self.host, "init", "-q")
+        # Snapshot restores require Git to finish writing before each command returns.
+        self.git(self.host, "config", "maintenance.auto", "false")
         self.git(self.host, "config", "user.name", "Test")
         self.git(self.host, "config", "user.email", "test@example.com")
         (self.host / ".gitignore").write_text("/.codex/\n")
