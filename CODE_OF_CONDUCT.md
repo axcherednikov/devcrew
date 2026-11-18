@@ -38,8 +38,6 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-For harassment or abusive content on GitHub, use **Report content** on the issue, pull request, or comment. Choose **Report to repository admins** if offered, or contact GitHub Support using the [abuse reporting instructions](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam). Reports sent to GitHub Support are handled by GitHub. Please keep personal details out of public issues.
-
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
 ## Enforcement Guidelines
@@ -78,7 +76,7 @@ Community Impact Guidelines were inspired by [Mozilla's code of conduct enforcem
 
 For answers to common questions about this code of conduct, see the FAQ at [https://www.contributor-covenant.org/faq][FAQ]. Translations are available at [https://www.contributor-covenant.org/translations][translations].
 
-This adaptation uses DevCrew’s reporting instructions and is distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+This adaptation is distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 [homepage]: https://www.contributor-covenant.org
 [v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html

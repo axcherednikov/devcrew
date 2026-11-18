@@ -38,8 +38,6 @@
 
 ## Приведение в исполнение
 
-Если вы столкнулись с травлей или оскорблениями на GitHub, выберите **Report content** в меню issue, pull request или комментария. Если доступен вариант **Report to repository admins**, он отправит жалобу сопровождающему. Также можно обратиться в поддержку GitHub по [инструкции](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam). Обращения в поддержку рассматривает GitHub. Не публикуйте личные сведения в открытых issues.
-
 Все лидеры сообщества обязаны уважать неприкосновенность частной жизни и личную неприкосновенность автора сообщения.
 
 ## Руководство по исполнению
@@ -78,7 +76,7 @@
 
 Ответы на общие вопросы о данном кодексе поведения ищите на странице FAQ: [https://www.contributor-covenant.org/faq][FAQ]. Переводы доступны по адресу [https://www.contributor-covenant.org/translations][translations].
 
-В этой адаптации указаны каналы подачи жалоб для DevCrew. Текст распространяется по лицензии [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+Эта адаптация распространяется по лицензии [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 [homepage]: https://www.contributor-covenant.org
 [v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
