@@ -10,11 +10,11 @@ from unittest import mock
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import devcrew_phase
-import devcrew_worktree
-import devcrew_dispatch
 import devcrew_context
 import devcrew_cost
+import devcrew_dispatch
+import devcrew_phase
+import devcrew_worktree
 import test_phase_review_lifecycle as phase_review
 from devcrew_test_helpers import run_check
 

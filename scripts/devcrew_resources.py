@@ -1,12 +1,13 @@
 """Cross-platform advisory resource ownership for cooperating DevCrew check runners."""
 
-import devcrew_fs as fs
 import json
 import os
 import pathlib
 import re
 import socket
 import time
+
+import devcrew_fs as fs
 
 
 def _path(directory, name):

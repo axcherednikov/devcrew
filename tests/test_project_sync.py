@@ -12,7 +12,6 @@ import tomllib
 import unittest
 from unittest import mock
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"
 ROLE_ROOT = ROOT / "skills/devcrew-setup/assets/agents"
@@ -868,7 +867,6 @@ class ProjectSyncTest(unittest.TestCase):
         project, _ = self.init_project()
         self.commit_project_setup(project, tracked_runtime=True)
         (project / ".codex/agents/decision-agent.toml").unlink()
-        state_path = project / PROJECT_STATE
         state = self.state(project)
         state["plugin_version"] = "unstaged-user-edit"
         self.write_state(project, state)

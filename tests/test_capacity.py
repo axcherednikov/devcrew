@@ -1,6 +1,6 @@
 import base64
-import json
 import copy
+import json
 import os
 import pathlib
 import shutil
@@ -13,9 +13,9 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import devcrew_capacity as capacity
-import devcrew_dispatch
 import devcrew_context
 import devcrew_cost
+import devcrew_dispatch
 import devcrew_phase
 import devcrew_worktree
 import test_phase_review_lifecycle as phase_review
@@ -565,7 +565,7 @@ class CapacityBackpressure(unittest.TestCase):
             with self.subTest(role=role):
                 self.install_lifecycle_fixture()
                 blocked = self.report(role=role)
-                initial = capacity.report(str(self.project), blocked)
+                capacity.report(str(self.project), blocked)
                 resumed = capacity.resume(str(self.project), self.task_id, host_initiated=True)
                 successful = self.report(
                     role=role,

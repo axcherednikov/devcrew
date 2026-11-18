@@ -8,9 +8,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import devcrew_cost as cost
 import devcrew_context as context
-import devcrew_dispatch
+import devcrew_cost as cost
 import devcrew_phase
 import test_phase_review_lifecycle as phase_review
 

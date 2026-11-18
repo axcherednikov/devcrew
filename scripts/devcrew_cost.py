@@ -6,7 +6,6 @@ import json
 from collections import deque
 from pathlib import Path
 
-
 MODES = ("economy", "balanced", "quality")
 RISKS = ("low", "medium", "high")
 IMPLEMENTATION_REASONS = (

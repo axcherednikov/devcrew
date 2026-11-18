@@ -1,13 +1,12 @@
 import json
-import pathlib
 import os
-import tempfile
+import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
 
 import test_devcrew
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"

@@ -1,11 +1,10 @@
 import importlib.util
 import json
 import subprocess
+import unittest
 from argparse import Namespace
 from pathlib import Path
-import unittest
 from unittest.mock import patch
-
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills/devcrew-review/scripts/publish_inline.py"
 spec = importlib.util.spec_from_file_location("publish_inline", SCRIPT)

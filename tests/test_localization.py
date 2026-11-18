@@ -3,7 +3,6 @@ import re
 import tomllib
 import unittest
 
-
 SKILLS = pathlib.Path(__file__).resolve().parents[1] / "skills"
 CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 

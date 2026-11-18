@@ -1,12 +1,13 @@
 """Read-only memory inventory and calibration from measured observations."""
 
-import devcrew_fs as fs
 import hashlib
 import json
 import math
 import os
 import pathlib
 import stat
+
+import devcrew_fs as fs
 
 
 def _walk_error(error):

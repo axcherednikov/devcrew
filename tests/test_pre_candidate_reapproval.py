@@ -1,7 +1,7 @@
 """Pre-candidate contract refresh and exact environment fingerprint regressions."""
 
-import json
 import hashlib
+import json
 import os
 import pathlib
 import subprocess
@@ -13,12 +13,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests"))
 import devcrew_capacity
-import devcrew_dispatch
 import devcrew_context
+import devcrew_cost
+import devcrew_dispatch
 import devcrew_phase
 import devcrew_worktree
-import devcrew_cost
 import test_phase_review_lifecycle
+
 from hooks import user_prompt_submit
 
 
@@ -1626,7 +1627,7 @@ class PreCandidateReapprovalTests(unittest.TestCase):
         assessment["previous_plan_sha256"] = devcrew_phase.intent_plan_digest(initial)
         assessment["plan_sha256"] = devcrew_phase.intent_plan_digest(replacement)
         planner = planner_receipt(self.host, "T01", self.base, "reapprove obligation mapping")
-        updated = devcrew_phase.reapprove_pre_candidate(
+        devcrew_phase.reapprove_pre_candidate(
             path,
             replacement,
             self.receipt,
@@ -1911,7 +1912,7 @@ class PreCandidateReapprovalTests(unittest.TestCase):
         original = json.loads(self.path.read_text())
         original_planner_id = original["planner_dispatch"]["spawn_receipt_id"]
         authorizer = planner_receipt(self.host, "T01", self.base, "historical authority planner")
-        updated = devcrew_phase.reapprove_pre_candidate(
+        devcrew_phase.reapprove_pre_candidate(
             self.path,
             self.replacement(),
             self.receipt,
@@ -2002,7 +2003,7 @@ class PreCandidateReapprovalTests(unittest.TestCase):
         self.receipt = devcrew_worktree.resolve(self.host, "T01", read_only=True)
         index_before = self.raw_index_bytes(self.task)
         planner = planner_receipt(self.host, "T01", self.base, "raw index preservation planner")
-        manifest = json.loads(self.path.read_text())
+        json.loads(self.path.read_text())
         replacement = self.replacement()
         updated = devcrew_phase.reapprove_pre_candidate(
             self.path, replacement, self.receipt, self.host, "P1", planner["SPAWN_RECEIPT_ID"]

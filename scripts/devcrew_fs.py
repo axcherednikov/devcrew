@@ -2,9 +2,9 @@
 
 import errno
 import os
-from pathlib import Path
 import stat
 import time
+from pathlib import Path
 
 try:
     from ntpath import isreserved as _is_reserved_name
@@ -17,6 +17,7 @@ except ImportError:  # Python 3.11 and 3.12
 
 if os.name == "nt":
     import msvcrt
+
     import devcrew_winfiles
 
 

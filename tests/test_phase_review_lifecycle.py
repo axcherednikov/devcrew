@@ -1,7 +1,6 @@
 import hashlib
 import json
 import pathlib
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,14 +10,13 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import devcrew_phase
 import devcrew_capacity
-from devcrew_test_helpers import run_check as run_check_api
-import devcrew_worktree
-import devcrew_dispatch
 import devcrew_context
 import devcrew_cost
-import devcrew_capacity
+import devcrew_dispatch
+import devcrew_phase
+import devcrew_worktree
+from devcrew_test_helpers import run_check as run_check_api
 
 
 def issue_planner_receipt(project, task_id, base_sha, message, agent_id):
@@ -955,7 +953,7 @@ class PhaseReviewLifecycleTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(started.returncode, 0, started.stderr)
-        target = json.loads(started.stdout)["review_target"]
+        json.loads(started.stdout)["review_target"]
         report = self.host / "review.json"
         payload = {
             "TASK_ID": "T01",
@@ -4164,9 +4162,7 @@ class PhaseReviewLifecycleTests(unittest.TestCase):
         self.assertEqual(archived[0]["candidate_commit"]["sha"], rejected["sha"])
         self.assertEqual(archived[1]["candidate_commit"]["sha"], first_replacement["sha"])
         self.assertEqual(archived[1]["executor_dispatch"]["writer_cycle"], 0)
-        repair = self.make_candidate(
-            candidate_text="cycle two repair candidate after systemic reset\n"
-        )
+        self.make_candidate(candidate_text="cycle two repair candidate after systemic reset\n")
         devcrew_phase.begin_review(
             self.path, self.manifest, self.receipt, self.host, self.task, "P1", self.verifier
         )

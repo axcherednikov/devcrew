@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import json
-import hashlib
 import os
 import pathlib
 import re
@@ -13,6 +11,7 @@ import uuid
 from typing import Any
 
 import devcrew_dispatch
+import devcrew_fs as fs
 
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 ROLES = {"planner", "executor", "reviewer"}

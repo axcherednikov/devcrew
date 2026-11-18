@@ -7,7 +7,6 @@ acceptance statements, plus event and message digests, but never prompt bytes.
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import hashlib
 import json
 import os
@@ -20,6 +19,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
+import devcrew_fs as fs
 from devcrew_phase import valid_review_advisories
 
 
@@ -1069,9 +1069,11 @@ def _requirements_delivery(
 ) -> tuple[dict, str | None]:
     """Rebuild the canonical requirement envelope for issuance and every gate."""
     from devcrew_requirements import (
-        context as requirements_context,
-        load,
         checked_serialized_context,
+        load,
+    )
+    from devcrew_requirements import (
+        context as requirements_context,
     )
 
     registry, _ = load(project, memory_relative)
@@ -1207,7 +1209,7 @@ def _validate_current_requirements(
 
 
 def _plan_report(value: dict, report: Any) -> dict:
-    source = _source(value)
+    _source(value)
     required = {
         "TASK_ID",
         "SPAWN_RECEIPT_ID",
@@ -1446,9 +1448,8 @@ def issue_dispatch(
     requirements_scope: list[str] | None = None,
 ) -> dict:
     """Prepare a host-routable payload; only a later observed spawn is a receipt."""
-    from devcrew_cost import route
     from devcrew_context import _build_routed_spawn
-    from devcrew_requirements import context as requirements_context, load
+    from devcrew_cost import route
 
     path = _task_path(project, task_id)
     value = _read(path)

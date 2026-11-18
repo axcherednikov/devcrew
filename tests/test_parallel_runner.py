@@ -1,7 +1,7 @@
 """Synthetic projects exercise the class-grouped unittest runner."""
 
-import json
 import importlib.util
+import json
 import os
 import pathlib
 import signal
@@ -12,7 +12,6 @@ import textwrap
 import time
 import unittest
 from unittest.mock import patch
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts/run_tests.py"

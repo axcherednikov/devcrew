@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ARCHITECTURE = ROOT / "skills" / "devcrew-architecture" / "SKILL.md"
 AUTOPILOT = ROOT / "skills" / "devcrew-autopilot" / "SKILL.md"

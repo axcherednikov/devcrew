@@ -9,11 +9,11 @@ import json
 import pathlib
 import subprocess
 import sys
-import unittest
 import tempfile
+import unittest
 
-import test_phase_review_lifecycle as lifecycle
 import devcrew_phase
+import test_phase_review_lifecycle as lifecycle
 from devcrew_test_helpers import run_check
 
 

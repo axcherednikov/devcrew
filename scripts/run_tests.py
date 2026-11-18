@@ -4,23 +4,22 @@
 from __future__ import annotations
 
 import argparse
-import io
 import inspect
+import io
 import multiprocessing
-from multiprocessing.connection import wait
 import os
 import signal
 import subprocess
 import sys
 import tempfile
-import time
 import threading
+import time
 import traceback
 import unittest
 from collections import OrderedDict
 from contextlib import contextmanager, nullcontext
+from multiprocessing.connection import wait
 from pathlib import Path
-
 
 _WORKER_POLL_SECONDS = 0.1
 _PROCESS_SCAN_SECONDS = 0.5

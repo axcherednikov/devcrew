@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import hashlib
 import ipaddress
 import json
@@ -17,6 +16,8 @@ import urllib.parse
 import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
+
+import devcrew_fs as fs
 
 
 class QaError(ValueError):
@@ -582,7 +583,6 @@ def _verify_run(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if not RUN_ID_RE.fullmatch(run_id):
         raise QaError("invalid run ID")
-    root = project / paths["checks"] / "qa" / "runs" / run_id
     result_path = read_destination(project, f"{paths['checks']}/qa/runs/{run_id}/result.json")
     evidence_path = read_destination(project, f"{paths['checks']}/qa/runs/{run_id}/evidence.json")
     result, evidence = _read_json(result_path), _read_json(evidence_path)
@@ -638,7 +638,6 @@ def _verify_run(
         raise QaError("QA run belongs to a different project or ID")
     if hashlib.sha256(evidence_path.read_bytes()).hexdigest() != result["evidence_sha256"]:
         raise QaError("QA evidence integrity check failed")
-    snapshots = project / paths["tasks"] / "qa" / "snapshots" / run_id
     scenario_path = read_destination(
         project, f"{paths['tasks']}/qa/snapshots/{run_id}/scenario.json"
     )

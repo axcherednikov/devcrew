@@ -1,25 +1,25 @@
 """Candidates stop for manual reconciliation after uncertain side effects."""
 
-import errno
 import copy
+import errno
 import hashlib
 import json
 import os
 import pathlib
+import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 import unittest
-import shutil
 from unittest import mock
 
 import test_phase_candidate_commit as candidate_tests
 
 ROOT = candidate_tests.ROOT
-from devcrew_test_helpers import ExactPathSeed, copied_attributes, restore_attributes
 import devcrew_phase
 import devcrew_worktree
+from devcrew_test_helpers import ExactPathSeed, copied_attributes, restore_attributes
 
 
 class CandidateSafetyTests(unittest.TestCase):

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import json
 import os
 import pathlib
-import re
 import stat
 import subprocess
 import sys
 import tempfile
+
+import devcrew_fs as fs
 
 
 class ServerProfileError(ValueError):

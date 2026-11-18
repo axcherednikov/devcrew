@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import argparse
 import contextlib
 import datetime as _dt
@@ -23,20 +22,20 @@ import tomllib
 import uuid
 from typing import Any
 
-import devcrew_resources
-import devcrew_memory
-import devcrew_requirements
+import devcrew_capacity
 import devcrew_context
 import devcrew_cost
 import devcrew_dispatch
-import devcrew_worktree
-import devcrew_capacity
-import devcrew_phase
+import devcrew_fs as fs
+import devcrew_memory
 import devcrew_ordinary
-import devcrew_servers
+import devcrew_phase
 import devcrew_qa
 import devcrew_qa_environment
-
+import devcrew_requirements
+import devcrew_resources
+import devcrew_servers
+import devcrew_worktree
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ASSET_ROOT = ROOT / "skills" / "devcrew-setup" / "assets"

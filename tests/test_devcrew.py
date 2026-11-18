@@ -4,12 +4,9 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-import textwrap
-import time
 import tomllib
 import unittest
 from unittest import mock
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"

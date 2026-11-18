@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import hashlib
 import json
 import os
@@ -12,6 +11,8 @@ import secrets
 import subprocess
 import tempfile
 from contextlib import contextmanager
+
+import devcrew_fs as fs
 
 
 def _git(project, *args, check=True, read_only=False):

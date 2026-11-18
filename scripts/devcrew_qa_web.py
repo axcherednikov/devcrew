@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import hashlib
 import ipaddress
 import json
@@ -14,8 +13,8 @@ import urllib.parse
 import uuid
 from typing import Any, Callable
 
+import devcrew_fs as fs
 import devcrew_qa_environment
-
 from devcrew_qa import (
     ID_RE,
     MAX_INPUT_BYTES,
@@ -29,7 +28,6 @@ from devcrew_qa import (
     _read_json,
     _request,
 )
-
 
 SCHEMA_VERSION = 1
 MAX_INDEX_BYTES = 8 * 1024 * 1024
@@ -223,12 +221,6 @@ def _validate_scenario(
     }
     if readback is not None:
         safe_profile["readback"] = readback
-    normalized = {
-        "schema_version": SCHEMA_VERSION,
-        "profile": safe_profile,
-        "viewports": normalized_viewports,
-        "scenarios": normalized_scenarios,
-    }
     return safe_profile, normalized_viewports, normalized_scenarios
 
 
@@ -1631,7 +1623,7 @@ def _report(
     read_destination: Callable,
 ) -> int:
     result, evidence = _verify_run(project, paths, destination, read_destination, args.run_id)
-    layout = _paths(paths, args.run_id)
+    _paths(paths, args.run_id)
     index = _load_index(read_destination(project, _paths(paths, "0" * 32)["index"]))
     entry = next((item for item in index["runs"] if item["run_id"] == args.run_id), None)
     if (

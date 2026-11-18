@@ -11,8 +11,9 @@ from unittest.mock import patch
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
-from hooks import project_sync_notice as notice
 import devcrew
+
+from hooks import project_sync_notice as notice
 
 
 class SyncNotice(unittest.TestCase):

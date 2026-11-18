@@ -6,9 +6,8 @@ estimates context size from cumulative token usage or subscription allowance.
 
 from __future__ import annotations
 
-import devcrew_fs as fs
-import math
 import json
+import math
 import os
 import pathlib
 import re
@@ -17,13 +16,13 @@ import sys
 import tomllib
 import uuid
 
-import devcrew_cost
 import devcrew_capacity
+import devcrew_cost
 import devcrew_dispatch
+import devcrew_fs as fs
 import devcrew_phase
 import devcrew_requirements
 import devcrew_worktree
-
 
 DEFAULTS = {
     "enabled": True,

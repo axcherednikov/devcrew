@@ -7,10 +7,10 @@ import subprocess
 import sys
 import unittest
 
-import test_devcrew
-import test_phase_candidate_commit
 import devcrew_phase
 import devcrew_worktree
+import test_devcrew
+import test_phase_candidate_commit
 
 
 class RequiredWaveChecks(unittest.TestCase):

@@ -2,12 +2,12 @@ import copy
 import json
 import os
 import pathlib
-import signal
 import subprocess
 import sys
 import time
 import unittest
 from unittest import mock
+
 import test_devcrew
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))

@@ -7,15 +7,14 @@ the creating CLI; transient check/worker jobs die with the owning handle.
 """
 
 import ctypes
-from ctypes import wintypes as w
-from contextlib import ExitStack, contextmanager
 import msvcrt
 import os
 import socket
 import subprocess
 import time
 import weakref
-
+from contextlib import ExitStack, contextmanager
+from ctypes import wintypes as w
 
 kernel = ctypes.WinDLL("kernel32", use_last_error=True)
 iphelper = ctypes.WinDLL("iphlpapi", use_last_error=True)

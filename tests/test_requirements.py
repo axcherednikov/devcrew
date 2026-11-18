@@ -644,8 +644,8 @@ class RequirementRegistryTests(unittest.TestCase):
 
         sys.path.insert(0, str(ROOT / "scripts"))
         sys.path.insert(0, str(ROOT / "tests"))
-        import devcrew_requirements
         import devcrew_phase
+        import devcrew_requirements
         import test_phase_review_lifecycle as phase_review
 
         fixture = phase_review.PhaseReviewLifecycleTests()

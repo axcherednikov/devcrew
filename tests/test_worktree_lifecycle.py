@@ -2,13 +2,12 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-import shutil
 from unittest import mock
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"
@@ -310,7 +309,7 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertIn("locked", after)
 
     def test_resolve_rejects_task_branch_ref_that_differs_from_linked_head(self):
-        path = self.create()
+        self.create()
         newer = self.project / "later.txt"
         newer.write_text("later\n")
         self.git("add", "later.txt")
@@ -338,7 +337,7 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertFalse((path / "main-only.txt").exists())
 
     def test_missing_worktree_without_clean_proof_fails_closed(self):
-        path = self.expected_path("T01")
+        self.expected_path("T01")
         self.git("branch", "codex/tasks/T01", self.base)
         result, receipt = self.cli("resolve")
         self.assertNotEqual(result.returncode, 0)

@@ -9,10 +9,10 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import devcrew_phase
-import devcrew_dispatch
 import devcrew_context
 import devcrew_cost
+import devcrew_dispatch
+import devcrew_phase
 import devcrew_worktree
 
 

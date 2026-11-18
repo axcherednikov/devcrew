@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import http.server
 import json
-import hashlib
 import pathlib
 import shutil
 import socket
@@ -882,7 +882,7 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(len(json.loads(listed.stdout)["runs"]), 4)
 
     def test_saved_artifacts_are_within_reader_limits(self):
-        run = json.loads(
+        json.loads(
             self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
         )
         root = self.project / ".codex/checks/qa"

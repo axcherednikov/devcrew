@@ -15,7 +15,6 @@ from http.server import BaseHTTPRequestHandler
 
 from loopback_http import ThreadingLoopbackHTTPServer
 
-
 PAGE = """<!doctype html>
 <html lang="en">
 <head>

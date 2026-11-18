@@ -5,8 +5,8 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 from hooks import user_prompt_submit
 

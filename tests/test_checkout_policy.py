@@ -8,11 +8,11 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import devcrew_phase
 import devcrew_worktree
+import test_capacity as capacity
 import test_phase_candidate_commit as candidate
 import test_phase_review_lifecycle as review
-import test_capacity as capacity
-import devcrew_phase
 
 
 class CurrentCheckoutLifecycle(unittest.TestCase):

@@ -2,12 +2,11 @@
 
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills/devcrew-review/scripts/create_diff_thread.sh"
 SHAS = {"base": "a" * 40, "start": "b" * 40, "head": "c" * 40}

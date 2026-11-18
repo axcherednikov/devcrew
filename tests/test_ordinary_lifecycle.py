@@ -28,9 +28,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         import devcrew_ordinary
         import devcrew_phase
 
-        git = lambda *args: subprocess.run(
-            ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         with (project / ".gitignore").open("a", encoding="utf-8") as stream:
             stream.write(".codex/\nchat-context.json\n")
         git("add", ".gitignore")
@@ -283,9 +285,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
         import devcrew_ordinary as ordinary
 
-        git = lambda *args: subprocess.run(
-            ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         context = json.loads(self.context(project).read_text(encoding="utf-8"))
         barrier = threading.Barrier(3)
         outcomes = []
@@ -312,9 +316,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
         import devcrew_ordinary as ordinary
 
-        git = lambda root, *args: subprocess.run(
-            ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(root, *args):
+            return subprocess.run(
+                ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         context = json.loads(self.context(project).read_text(encoding="utf-8"))
         ordinary.init(project, "LINKED", context, git(project, "rev-parse", "HEAD"))
         linked = pathlib.Path(td.name) / "linked"
@@ -344,9 +350,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
         import devcrew_ordinary as ordinary
 
-        git = lambda *args: subprocess.run(
-            ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         key = hashlib.sha256(str(project.resolve()).encode("utf-8")).hexdigest()[:16]
         state = (
             project.parent / ".devcrew-task-worktrees" / f"{project.name}-{key}" / ".devcrew-state"
@@ -359,7 +367,8 @@ class OrdinaryLifecycleTests(unittest.TestCase):
             ordinary.init(project, "LINKED-MANIFEST", context, git("rev-parse", "HEAD"))
 
     def test_ordinary_init_from_linked_root_finds_real_formal_manifest_created_from_host(self):
-        from test_task_phases import PhaseManifestTests, plan as phase_plan
+        from test_task_phases import PhaseManifestTests
+        from test_task_phases import plan as phase_plan
 
         td, project = self.project()
         self.addCleanup(td.cleanup)
@@ -405,7 +414,8 @@ class OrdinaryLifecycleTests(unittest.TestCase):
             devcrew_ordinary.init(linked, "T01", linked_context, receipt["expected_head"])
 
     def test_formal_init_rechecks_ownership_inside_shared_namespace_lock(self):
-        from test_task_phases import PhaseManifestTests, plan as phase_plan
+        from test_task_phases import PhaseManifestTests
+        from test_task_phases import plan as phase_plan
 
         td, project = self.project()
         self.addCleanup(td.cleanup)
@@ -510,9 +520,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         import devcrew_ordinary as ordinary
         import devcrew_phase as phase
 
-        git = lambda *args: subprocess.run(
-            ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         (project / ".gitignore").write_text(".codex/\nchat-context.json\n")
         git("add", ".gitignore")
         subprocess.run(
@@ -564,9 +576,11 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         import devcrew_ordinary as ordinary
         import devcrew_phase as phase
 
-        git = lambda *args: subprocess.run(
-            ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
-        ).stdout.strip()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(project), *args], check=True, capture_output=True, text=True
+            ).stdout.strip()
+
         (project / ".gitignore").write_text(".codex/\nchat-context.json\n")
         git("add", ".gitignore")
         subprocess.run(
@@ -2108,7 +2122,7 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         td, project = self.project()
         self.addCleanup(td.cleanup)
         task_id = self.init(project)
-        candidate = self.candidate(project, task_id)
+        self.candidate(project, task_id)
         (project / "tracked.txt").write_text("changed\n")
         self.assertNotEqual(
             self.run_cli(
@@ -2585,7 +2599,7 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         self.addCleanup(td.cleanup)
         task_id = self.init(project)
         candidate = self.candidate(project, task_id)
-        failed = self.fail_review(project, task_id, candidate)
+        self.fail_review(project, task_id, candidate)
         state_path = project / ".codex" / "tasks" / f"{task_id}.ordinary.json"
         state = json.loads(state_path.read_text())
         review = state["review"]
@@ -2929,7 +2943,7 @@ class OrdinaryLifecycleTests(unittest.TestCase):
         self.addCleanup(td.cleanup)
         task_id = self.init(project)
         candidate = self.candidate(project, task_id)
-        failed = self.fail_review(project, task_id, candidate)
+        self.fail_review(project, task_id, candidate)
         state_path, candidate, review = self.convert_to_legacy_018(project, task_id)
         self.attach_legacy_routing(project, task_id)
         continuation = {

@@ -2,7 +2,6 @@ import pathlib
 import tomllib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROTOCOL = ROOT / "skills" / "devcrew-task" / "references" / "replan-protocol.md"
 

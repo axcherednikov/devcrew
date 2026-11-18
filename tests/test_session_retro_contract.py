@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SESSION = (ROOT / "skills/devcrew-session/SKILL.md").read_text()
 HARVEST = (ROOT / "skills/devcrew-task/references/session-harvest.md").read_text()

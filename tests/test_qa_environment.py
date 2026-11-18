@@ -668,7 +668,7 @@ class QaEnvironmentTests(unittest.TestCase):
 
     def test_foreign_listener_after_the_port_check_blocks_ready(self):
         port = self.unused_port()
-        foreign = self.start_foreign_server(port=port)
+        self.start_foreign_server(port=port)
         profile = self.profile(
             port,
             resource="port-race",

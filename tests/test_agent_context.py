@@ -1,9 +1,9 @@
-import hashlib
 import copy
-import pathlib
-import sys
+import hashlib
 import json
+import pathlib
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -11,12 +11,12 @@ from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import devcrew_context as context
 import devcrew_capacity
+import devcrew_context as context
 import devcrew_cost as cost
 import devcrew_dispatch
-import devcrew_requirements
 import devcrew_phase
+import devcrew_requirements
 import devcrew_worktree
 import test_phase_review_lifecycle as phase_review
 from devcrew_test_helpers import (

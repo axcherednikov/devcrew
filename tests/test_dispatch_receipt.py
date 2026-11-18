@@ -6,10 +6,10 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import devcrew_dispatch
+import devcrew_capacity
 import devcrew_context
 import devcrew_cost
-import devcrew_capacity
+import devcrew_dispatch
 import test_phase_review_lifecycle as phase_review
 
 
@@ -138,7 +138,6 @@ class DispatchReceiptContract(unittest.TestCase):
                 },
             )
         if role == "executor":
-            phase = fixture.manifest["phases"][0]
             fixture.manifest = __import__("devcrew_phase").set_phase_status(
                 fixture.path,
                 fixture.manifest,

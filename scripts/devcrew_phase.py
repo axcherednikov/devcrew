@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
-import json
 import datetime
-import math
 import hashlib
 import importlib.util
+import json
+import math
 import os
 import pathlib
 import re
@@ -19,10 +18,11 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
-import devcrew_worktree
-import devcrew_dispatch
 import devcrew_capacity
 import devcrew_cost
+import devcrew_dispatch
+import devcrew_fs as fs
+import devcrew_worktree
 
 SCHEMA_VERSION = 1
 SUPPORTED_SCHEMA_VERSIONS = {1, 2}
@@ -3113,7 +3113,6 @@ def _validate_intent_transition(
         final_phase = next(
             (row for row in proposed.get("phases", []) if row.get("phase_id") == final_id), {}
         )
-        review = new_acceptance.get("review", {})
         report = final_phase.get("review_report")
         if (
             new_acceptance.get("review")
@@ -3551,7 +3550,7 @@ def _pre_candidate_eligible(
     *,
     environment_only: bool = False,
 ) -> tuple[dict[str, Any], pathlib.Path]:
-    generation = _contract_generation(manifest)
+    _contract_generation(manifest)
     phases = manifest.get("phases")
     if (
         not isinstance(phases, list)
@@ -5925,7 +5924,7 @@ def start_local_fix(
         )
     _verify_candidate_commit(manifest, phase, task_root)
     _verify_candidate_evidence(project, task_root, manifest, phase, verifier)
-    report = _verify_saved_review_report(project, manifest, phase)
+    _verify_saved_review_report(project, manifest, phase)
     if continuation is not None:
         continuation = _verify_continuation(
             continuation, manifest, phase, project, task_root, verifier
@@ -6329,7 +6328,7 @@ def recover_systemic_replan(
     _verify_systemic_planner_history(project, manifest, completion, candidate, receipt)
     if _git(task_root, "rev-parse", "--verify", backup_ref, check=False) != rejected_sha:
         _fail("PHASE_COMMIT_INCONSISTENT", "rejected candidate recovery ref is missing or changed")
-    head = _git(task_root, "rev-parse", "HEAD")
+    _git(task_root, "rev-parse", "HEAD")
     if _git(task_root, "symbolic-ref", "--short", "HEAD", check=False) != manifest["worktree"][
         "branch"
     ] or _git(task_root, "status", "--porcelain", "--untracked-files=all"):

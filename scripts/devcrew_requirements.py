@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import hashlib
 import json
 import os
@@ -10,6 +9,8 @@ import pathlib
 import re
 import stat
 import tempfile
+
+import devcrew_fs as fs
 
 REGISTRY_NAME = "engineering-requirements.json"
 REGISTRY_LIMIT = 512 * 1024

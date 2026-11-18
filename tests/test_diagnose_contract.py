@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIAGNOSE = ROOT / "skills" / "devcrew-diagnose" / "SKILL.md"
 TASK = ROOT / "skills" / "devcrew-task" / "SKILL.md"

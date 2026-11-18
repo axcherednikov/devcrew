@@ -1,12 +1,12 @@
 """Windows handle and ACL operations for private DevCrew files (standard library)."""
 
 import ctypes as c
-from ctypes import wintypes as w
-from contextlib import contextmanager
-from functools import lru_cache
 import msvcrt
 import os
 import stat
+from contextlib import contextmanager
+from ctypes import wintypes as w
+from functools import lru_cache
 
 
 def _bind(dll, name, result, *args):
@@ -80,6 +80,7 @@ def _checked_handle(path, access, disposition=_OPEN_EXISTING, *, share=7):
 
 def open_regular(path, flags, *, exclusive_writer=False):
     from pathlib import Path
+
     from devcrew_fs import windows_safe_parts
 
     name = Path(path)

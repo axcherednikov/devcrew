@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import ctypes
 import ctypes.util
 import hashlib
@@ -20,6 +19,7 @@ import urllib.parse
 import uuid
 from typing import Any, Callable
 
+import devcrew_fs as fs
 import devcrew_resources
 
 if os.name == "nt":

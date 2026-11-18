@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / "skills/devcrew-handoff"
 
