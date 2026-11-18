@@ -1,9 +1,18 @@
 """Cross-platform operations for the plugin's file and lock contracts."""
 import errno
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import stat
 import time
+
+try:
+    from ntpath import isreserved as _is_reserved_name
+except ImportError:  # Python 3.11 and 3.12
+    from pathlib import PureWindowsPath
+
+    def _is_reserved_name(part):
+        return PureWindowsPath(part).is_reserved()
+
 
 if os.name == "nt":
     import msvcrt
@@ -14,7 +23,7 @@ def windows_safe_parts(parts):
     """Reject alternate data streams, DOS devices and names that alias other entries."""
     return all(part and not any(ord(c) < 32 or c in '<>:"/\\|?*' for c in part)
                and not part.endswith((" ", "."))
-               and not PureWindowsPath(part).is_reserved() for part in parts)
+               and not _is_reserved_name(part) for part in parts)
 
 
 def unsafe_parts(parts):

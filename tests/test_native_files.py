@@ -134,9 +134,12 @@ class NativeWindowsFiles(unittest.TestCase):
                                "turn_id": "turn-1", "cwd": str(project), "prompt": "Проверь проект"})
             for hook in hooks["UserPromptSubmit"][0]["hooks"]:
                 result = subprocess.run(hook["commandWindows"], shell=True, cwd=project, env=env,
-                                        input=data.encode(), capture_output=True, check=True, timeout=10)
+                                        input=data.encode(), capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
                 output = json.loads(result.stdout)
                 if "user_prompt_submit.py" in hook["commandWindows"]:
+                    self.assertIn("hookSpecificOutput", output, output.get("reason"))
                     self.assertIn("ORIGINAL INTENT RECEIPT", output["hookSpecificOutput"]["additionalContext"])
                 else:
+                    self.assertIn("systemMessage", output, output.get("reason"))
                     self.assertIn("синхронизирован", output["systemMessage"])
