@@ -39,8 +39,13 @@ class ProductOnboardContract(unittest.TestCase):
         self.assertIn("Never run automatically after setup", self.skill)
 
     def test_lenses_and_evidence_classification_are_complete(self):
-        for lens in ("Product map and user flows", "Actors, permissions and visibility",
-                     "Domain glossary", "Product signals", "Product materials"):
+        for lens in (
+            "Product map and user flows",
+            "Actors, permissions and visibility",
+            "Domain glossary",
+            "Product signals",
+            "Product materials",
+        ):
             with self.subTest(lens=lens):
                 self.assertIn(lens, self.skill)
         for status in ("CONFIRMED", "INFERRED", "UNKNOWN"):
@@ -50,19 +55,28 @@ class ProductOnboardContract(unittest.TestCase):
         self.assertIn("Product decisions belong to their existing owner mechanism", self.skill)
 
     def test_absent_analytics_is_white_spot_not_invented_metric(self):
-        self.assertIn("If analytics is absent, record a white spot; never invent metrics.", self.skill)
+        self.assertIn(
+            "If analytics is absent, record a white spot; never invent metrics.", self.skill
+        )
         self.assertIn("An absent analytics substrate", self.skill)
 
     def test_memory_is_configured_indexed_and_separate_from_engineering_memory(self):
-        for phrase in ("memory directory configured by `.codex/devcrew.json`",
-                       "existing memory index/map", "Do not assume the directory is literally `memory/`",
-                       "Keep product context separate from engineering conventions",
-                       "Do not append a second copy on rerun"):
+        for phrase in (
+            "memory directory configured by `.codex/devcrew.json`",
+            "existing memory index/map",
+            "Do not assume the directory is literally `memory/`",
+            "Keep product context separate from engineering conventions",
+            "Do not append a second copy on rerun",
+        ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, self.skill)
-        for section in ("Product map / flows", "Actors / permissions / visibility",
-                        "Domain glossary", "Signals / analytics / flags / plans",
-                        "Unknowns / assumptions"):
+        for section in (
+            "Product map / flows",
+            "Actors / permissions / visibility",
+            "Domain glossary",
+            "Signals / analytics / flags / plans",
+            "Unknowns / assumptions",
+        ):
             with self.subTest(section=section):
                 self.assertIn(f"`{section}`", self.skill)
 
@@ -76,16 +90,28 @@ class ProductOnboardContract(unittest.TestCase):
     def test_material_fanout_requires_scope_approval_only(self):
         self.assertIn("substantial fan-out", self.skill)
         self.assertIn("wait for approval before that material cost", self.skill)
-        self.assertIn("Ordinary bounded read-only inspection needs no approval ceremony", self.skill)
+        self.assertIn(
+            "Ordinary bounded read-only inspection needs no approval ceremony", self.skill
+        )
 
     def test_downstream_context_is_selective_and_integrated(self):
-        for consumer in ("devcrew-brief", "devcrew-task", "devcrew-review",
-                         "devcrew-architecture", "devcrew-autopilot", "devcrew-session"):
+        for consumer in (
+            "devcrew-brief",
+            "devcrew-task",
+            "devcrew-review",
+            "devcrew-architecture",
+            "devcrew-autopilot",
+            "devcrew-session",
+        ):
             with self.subTest(consumer=consumer):
                 self.assertIn(consumer, self.skill)
         self.assertIn("only matching sections", self.skill)
-        self.assertIn("payment changes need the payment flow, relevant actors and glossary", self.skill)
-        self.assertIn("an internal refactor with no product behavior needs no product context", self.skill)
+        self.assertIn(
+            "payment changes need the payment flow, relevant actors and glossary", self.skill
+        )
+        self.assertIn(
+            "an internal refactor with no product behavior needs no product context", self.skill
+        )
         self.assertIn("load only sections relevant to the task's user-visible behavior", self.task)
         self.assertIn("`devcrew-brief` uses relevant product facts as evidence", self.skill)
 
@@ -96,16 +122,23 @@ class ProductOnboardContract(unittest.TestCase):
         self.assertIn("does not automatically require a session workflow", self.session)
 
     def test_refresh_revalidates_sources_and_preserves_decision_owner(self):
-        for phrase in ("revalidate each old source and claim", "remove claims no longer supported",
-                       "Never let an inference overwrite an accepted decision",
-                       "missing or moved evidence makes the claim stale"):
+        for phrase in (
+            "revalidate each old source and claim",
+            "remove claims no longer supported",
+            "Never let an inference overwrite an accepted decision",
+            "missing or moved evidence makes the claim stale",
+        ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, self.skill)
 
     def test_routing_examples_separate_onboard_brief_and_adjacent_skills(self):
-        for case in ("product-onboard-explicit", "product-onboard-vs-brief",
-                     "product-onboard-no-autostart", "product-onboard-existing-and-greenfield",
-                     "product-onboard-route-overlap"):
+        for case in (
+            "product-onboard-explicit",
+            "product-onboard-vs-brief",
+            "product-onboard-no-autostart",
+            "product-onboard-existing-and-greenfield",
+            "product-onboard-route-overlap",
+        ):
             with self.subTest(case=case):
                 self.assertIn(case, self.evals)
         self.assertIn("devcrew-product-onboard", self.readme)

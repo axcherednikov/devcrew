@@ -24,8 +24,19 @@ class HandoffContract(unittest.TestCase):
     def test_full_template_has_four_audience_distinct_sections_in_order(self):
         russian = (SKILL_DIR / "references/ru/template.md").read_text()
         for template, headers in (
-            (self.template, ("## Private summary", "## QA", "## Frontend / client", "## For the customer")),
-            (russian, ("## Кратко для меня", "## QA", "## Команде клиентского приложения", "## Для заказчика")),
+            (
+                self.template,
+                ("## Private summary", "## QA", "## Frontend / client", "## For the customer"),
+            ),
+            (
+                russian,
+                (
+                    "## Кратко для меня",
+                    "## QA",
+                    "## Команде клиентского приложения",
+                    "## Для заказчика",
+                ),
+            ),
         ):
             positions = [template.index(header) for header in headers]
             self.assertEqual(positions, sorted(positions))
@@ -46,7 +57,12 @@ class HandoffContract(unittest.TestCase):
             self.assertIn(audience, self.skill)
 
     def test_qa_is_behavioral_and_actionable_but_bounded(self):
-        for phrase in ("Describe user/system behavior, not implementation structure", "Precondition", "Action", "Expected result"):
+        for phrase in (
+            "Describe user/system behavior, not implementation structure",
+            "Precondition",
+            "Action",
+            "Expected result",
+        ):
             self.assertIn(phrase, self.audiences)
         self.assertIn("usually 1–3 scenarios", self.skill)
         self.assertIn("project-wide regression plan", self.skill)
@@ -68,13 +84,22 @@ class HandoffContract(unittest.TestCase):
         self.assertNotIn("PHPStan", customer)
 
     def test_claims_require_evidence_and_unknown_is_not_instruction(self):
-        for marker in ("REQUIREMENT → IMPLEMENTED BEHAVIOR → VERIFICATION EVIDENCE → AUDIENCE",
-                       "CONFIRMED", "UNKNOWN", "NOT_APPLICABLE",
-                       "do not turn them into QA/client/customer instructions"):
+        for marker in (
+            "REQUIREMENT → IMPLEMENTED BEHAVIOR → VERIFICATION EVIDENCE → AUDIENCE",
+            "CONFIRMED",
+            "UNKNOWN",
+            "NOT_APPLICABLE",
+            "do not turn them into QA/client/customer instructions",
+        ):
             self.assertIn(marker, self.skill)
 
     def test_failure_states_block_success_claims(self):
-        for state in ("SOURCE_UNAVAILABLE", "IMPLEMENTATION_NOT_FOUND", "INSUFFICIENT_EVIDENCE", "HANDOFF_BLOCKED"):
+        for state in (
+            "SOURCE_UNAVAILABLE",
+            "IMPLEMENTATION_NOT_FOUND",
+            "INSUFFICIENT_EVIDENCE",
+            "HANDOFF_BLOCKED",
+        ):
             self.assertIn(state, self.skill)
         self.assertIn("Do not produce successful customer completion text", self.skill)
 

@@ -1,4 +1,5 @@
 """Check that published workflow guidance preserves the original-intent gate."""
+
 import pathlib
 import unittest
 
@@ -13,9 +14,15 @@ class OriginalIntentDocumentationContract(unittest.TestCase):
         self.session = (ROOT / "skills/devcrew-session/SKILL.md").read_text()
         self.runtime = (ROOT / "docs/runtime-contract.md").read_text()
         self.workflows = (ROOT / "docs/en/workflows.md").read_text()
-        self.decision = (ROOT / "skills/devcrew-setup/assets/agents/decision-agent.toml").read_text()
-        self.executor = (ROOT / "skills/devcrew-setup/assets/agents/executor-agent.toml").read_text()
-        self.reviewer = (ROOT / "skills/devcrew-setup/assets/agents/reviewer-agent.toml").read_text()
+        self.decision = (
+            ROOT / "skills/devcrew-setup/assets/agents/decision-agent.toml"
+        ).read_text()
+        self.executor = (
+            ROOT / "skills/devcrew-setup/assets/agents/executor-agent.toml"
+        ).read_text()
+        self.reviewer = (
+            ROOT / "skills/devcrew-setup/assets/agents/reviewer-agent.toml"
+        ).read_text()
         self.evaluation = (ROOT / "evaluation/original-intent.md").read_text()
 
     def test_capture_and_planning_guidance_keeps_source_provenance_and_authority_separate(self):
@@ -30,8 +37,14 @@ class OriginalIntentDocumentationContract(unittest.TestCase):
             self.assertIn("complete", text.casefold())
             self.assertIn("matrix", text.casefold())
             self.assertIn("explicit", text.casefold())
-        self.assertIn("do not add a mandatory preliminary planning reviewer", " ".join(self.task.casefold().split()))
-        self.assertIn("do not add a mandatory preliminary planning-reviewer dispatch", self.decision.casefold())
+        self.assertIn(
+            "do not add a mandatory preliminary planning reviewer",
+            " ".join(self.task.casefold().split()),
+        )
+        self.assertIn(
+            "do not add a mandatory preliminary planning-reviewer dispatch",
+            self.decision.casefold(),
+        )
 
     def test_final_review_and_task_status_require_independent_semantic_proof(self):
         for text in (self.task, self.review, self.reviewer, self.runtime):
@@ -47,13 +60,26 @@ class OriginalIntentDocumentationContract(unittest.TestCase):
         self.assertIn("PHASE_NOT_REVIEWABLE", self.runtime)
 
     def test_session_and_evaluation_preserve_history_and_leave_real_runs_unverified(self):
-        for reference in ("source snapshots", "decision identities", "final intent-review report",
-                          "task_status", "UNVERIFIED_LEGACY"):
+        for reference in (
+            "source snapshots",
+            "decision identities",
+            "final intent-review report",
+            "task_status",
+            "UNVERIFIED_LEGACY",
+        ):
             self.assertIn(reference, self.session)
         for scenario in range(1, 11):
             self.assertIn(f"R{scenario} —", self.evaluation)
-        for marker in ("NOT RUN", "NOT VERIFIED", "Probe A", "Probe B", "Desktop A", "Desktop B",
-                       "fork_turns=none", "test_final_v2_pass_rejects_unmapped_source_omission_despite_complete_matrix"):
+        for marker in (
+            "NOT RUN",
+            "NOT VERIFIED",
+            "Probe A",
+            "Probe B",
+            "Desktop A",
+            "Desktop B",
+            "fork_turns=none",
+            "test_final_v2_pass_rejects_unmapped_source_omission_despite_complete_matrix",
+        ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.evaluation)
 

@@ -10,9 +10,9 @@ import time
 
 
 def _path(directory, name):
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', name) or fs.unsafe_parts([name]):
-        raise ValueError('invalid resource name')
-    return pathlib.Path(directory).resolve() / (name + '.lock')
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", name) or fs.unsafe_parts([name]):
+        raise ValueError("invalid resource name")
+    return pathlib.Path(directory).resolve() / (name + ".lock")
 
 
 def _open_owner(path, *, create=False):
@@ -34,8 +34,8 @@ def _owner(handle):
     if not raw:
         return None
     value = json.loads(raw)
-    if not isinstance(value, dict) or value.get('devcrew_resource') != 1:
-        raise ValueError('resource lock contains unrelated data; refusing to overwrite')
+    if not isinstance(value, dict) or value.get("devcrew_resource") != 1:
+        raise ValueError("resource lock contains unrelated data; refusing to overwrite")
     return value
 
 
@@ -51,11 +51,19 @@ class ResourceLock:
         try:
             self.handle = _open_owner(self.path, create=True)
         except BlockingIOError as exc:
-            raise ValueError(f'resource {self.name} is busy; queue the check and inspect resource-status') from exc
+            raise ValueError(
+                f"resource {self.name} is busy; queue the check and inspect resource-status"
+            ) from exc
         try:
             _owner(self.handle)
-            owner = {'devcrew_resource': 1, 'pid': os.getpid(), 'host': socket.gethostname(),
-                     'project': self.project, 'resource': self.name, 'started_at': time.time()}
+            owner = {
+                "devcrew_resource": 1,
+                "pid": os.getpid(),
+                "host": socket.gethostname(),
+                "project": self.project,
+                "resource": self.name,
+                "started_at": time.time(),
+            }
             self.handle.seek(0)
             self.handle.truncate()
             json.dump(owner, self.handle)
@@ -80,9 +88,9 @@ def status(directory, name):
         handle = _open_owner(path)
         busy = False
     except FileNotFoundError:
-        return {'resource': name, 'busy': False, 'owner': None}
+        return {"resource": name, "busy": False, "owner": None}
     except BlockingIOError:
-        handle = os.fdopen(fs.open_regular(path, os.O_RDONLY), 'r', encoding='utf-8')
+        handle = os.fdopen(fs.open_regular(path, os.O_RDONLY), "r", encoding="utf-8")
         busy = True
     with handle:
         try:
@@ -91,4 +99,4 @@ def status(directory, name):
             if not busy:
                 raise
             owner = None  # Holder may be in the middle of writing its metadata.
-        return {'resource': name, 'busy': busy, 'owner': owner if busy else None}
+        return {"resource": name, "busy": busy, "owner": owner if busy else None}

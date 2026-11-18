@@ -28,8 +28,13 @@ class ExactPathSeed:
     def _environment_contract():
         # Trace2 changes its output file per measurement; it does not change
         # Git behavior. Every other environment entry remains part of reuse.
-        return tuple(sorted((key, value) for key, value in os.environ.items()
-                            if not key.startswith("GIT_TRACE2_")))
+        return tuple(
+            sorted(
+                (key, value)
+                for key, value in os.environ.items()
+                if not key.startswith("GIT_TRACE2_")
+            )
+        )
 
     def matches_environment(self):
         return self.environment == self._environment_contract()
@@ -62,13 +67,20 @@ def create_task_checkout(project, task_id, base_sha, *, worktree_request):
     return devcrew_worktree.resolve(project, task_id)
 
 
-def run_check(project, *, name, command, execution_root=None, task_id=None,
-              timeout=None, idle_timeout=None):
+def run_check(
+    project, *, name, command, execution_root=None, task_id=None, timeout=None, idle_timeout=None
+):
     """Run the same check operation as the CLI and return its record and payload."""
     project = devcrew._project(project)
     execution_root = devcrew._project(execution_root) if execution_root else project
     effective_timeout = devcrew.DEFAULT_TIMEOUT if timeout is None else float(timeout)
     effective_idle_timeout = None if idle_timeout is None else float(idle_timeout)
-    return devcrew._run_check(project, name, list(command), effective_timeout,
-                              effective_idle_timeout, execution_root=execution_root,
-                              task_id=task_id)
+    return devcrew._run_check(
+        project,
+        name,
+        list(command),
+        effective_timeout,
+        effective_idle_timeout,
+        execution_root=execution_root,
+        task_id=task_id,
+    )

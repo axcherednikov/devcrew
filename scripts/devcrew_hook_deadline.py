@@ -1,4 +1,5 @@
 """Bound trusted hook execution even when a pipe or another process holds a lock."""
+
 import json
 import os
 import signal
@@ -12,8 +13,11 @@ def run(main, script, timeout_result):
             main()
             return
         try:
-            result = subprocess.run([sys.executable, "-I", "-B", "-X", "utf8", script, "--hook-worker"],
-                                    stdout=subprocess.PIPE, timeout=3)
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", "-X", "utf8", script, "--hook-worker"],
+                stdout=subprocess.PIPE,
+                timeout=3,
+            )
         except subprocess.TimeoutExpired:
             print(json.dumps(timeout_result))
             return
@@ -22,6 +26,7 @@ def run(main, script, timeout_result):
 
     def expired(_signum, _frame):
         raise TimeoutError("hook deadline exceeded")
+
     signal.signal(signal.SIGALRM, expired)
     signal.alarm(3)
     try:

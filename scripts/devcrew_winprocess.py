@@ -46,8 +46,9 @@ def _bind(lib, name, result, *args):
 _open_process = _bind(kernel, "OpenProcess", w.HANDLE, DWORD, w.BOOL, DWORD)
 close = _bind(kernel, "CloseHandle", w.BOOL, w.HANDLE)
 _current_process = _bind(kernel, "GetCurrentProcess", w.HANDLE)
-_duplicate = _bind(kernel, "DuplicateHandle", w.BOOL, w.HANDLE, w.HANDLE, w.HANDLE,
-                   P, DWORD, w.BOOL, DWORD)
+_duplicate = _bind(
+    kernel, "DuplicateHandle", w.BOOL, w.HANDLE, w.HANDLE, w.HANDLE, P, DWORD, w.BOOL, DWORD
+)
 _get_times = _bind(kernel, "GetProcessTimes", w.BOOL, w.HANDLE, P, P, P, P)
 _query_image = _bind(kernel, "QueryFullProcessImageNameW", w.BOOL, w.HANDLE, DWORD, P, P)
 _session = _bind(kernel, "ProcessIdToSessionId", w.BOOL, DWORD, P)
@@ -64,30 +65,53 @@ _get_std = _bind(kernel, "GetStdHandle", w.HANDLE, DWORD)
 _init_attrs = _bind(kernel, "InitializeProcThreadAttributeList", w.BOOL, P, DWORD, DWORD, P)
 _delete_attrs = _bind(kernel, "DeleteProcThreadAttributeList", None, P)
 _update_attrs = _bind(kernel, "UpdateProcThreadAttribute", w.BOOL, P, DWORD, SIZE, P, SIZE, P, P)
-_create_process = _bind(kernel, "CreateProcessW", w.BOOL, w.LPCWSTR, P, P, P, w.BOOL,
-                        DWORD, P, w.LPCWSTR, P, P)
+_create_process = _bind(
+    kernel, "CreateProcessW", w.BOOL, w.LPCWSTR, P, P, P, w.BOOL, DWORD, P, w.LPCWSTR, P, P
+)
 _exit_code = _bind(kernel, "GetExitCodeProcess", w.BOOL, w.HANDLE, P)
 _resume = _bind(kernel, "ResumeThread", DWORD, w.HANDLE)
-_tcp_table = _bind(iphelper, "GetExtendedTcpTable", DWORD, P, P, w.BOOL, w.ULONG, ctypes.c_int, w.ULONG)
+_tcp_table = _bind(
+    iphelper, "GetExtendedTcpTable", DWORD, P, P, w.BOOL, w.ULONG, ctypes.c_int, w.ULONG
+)
 
 
 class BasicLimits(ctypes.Structure):
-    _fields_ = [("process_time", ctypes.c_longlong), ("job_time", ctypes.c_longlong),
-                ("flags", DWORD), ("minimum_working_set", SIZE), ("maximum_working_set", SIZE),
-                ("active_processes", DWORD), ("affinity", SIZE), ("priority", DWORD),
-                ("scheduling", DWORD)]
+    _fields_ = [
+        ("process_time", ctypes.c_longlong),
+        ("job_time", ctypes.c_longlong),
+        ("flags", DWORD),
+        ("minimum_working_set", SIZE),
+        ("maximum_working_set", SIZE),
+        ("active_processes", DWORD),
+        ("affinity", SIZE),
+        ("priority", DWORD),
+        ("scheduling", DWORD),
+    ]
 
 
 class ExtendedLimits(ctypes.Structure):
-    _fields_ = [("basic", BasicLimits), ("io_counters", ctypes.c_ulonglong * 6),
-                ("memory_limits_and_peaks", SIZE * 4)]
+    _fields_ = [
+        ("basic", BasicLimits),
+        ("io_counters", ctypes.c_ulonglong * 6),
+        ("memory_limits_and_peaks", SIZE * 4),
+    ]
 
 
 class StartupInfo(ctypes.Structure):
-    _fields_ = [("size", DWORD), ("reserved", P), ("desktop", P), ("title", P),
-                ("coordinates_sizes_attributes", DWORD * 7), ("flags", DWORD),
-                ("show_window", w.WORD), ("reserved_size", w.WORD), ("reserved_data", P),
-                ("stdin", w.HANDLE), ("stdout", w.HANDLE), ("stderr", w.HANDLE)]
+    _fields_ = [
+        ("size", DWORD),
+        ("reserved", P),
+        ("desktop", P),
+        ("title", P),
+        ("coordinates_sizes_attributes", DWORD * 7),
+        ("flags", DWORD),
+        ("show_window", w.WORD),
+        ("reserved_size", w.WORD),
+        ("reserved_data", P),
+        ("stdin", w.HANDLE),
+        ("stdout", w.HANDLE),
+        ("stderr", w.HANDLE),
+    ]
 
 
 class StartupInfoEx(ctypes.Structure):
@@ -131,9 +155,13 @@ def _open(group, access):
 
 
 def owns_group(pid, identity, group):
-    return (type(group) is int and 0 < group < 1 << 96 and
-            pid == group & 0xffffffff and isinstance(identity, dict) and
-            identity.get("start") == str(group >> 32))
+    return (
+        type(group) is int
+        and 0 < group < 1 << 96
+        and pid == group & 0xFFFFFFFF
+        and isinstance(identity, dict)
+        and identity.get("start") == str(group >> 32)
+    )
 
 
 def _contains(job, process):
@@ -143,7 +171,7 @@ def _contains(job, process):
 
 
 def identity(pid):
-    if not 1 < pid <= 0xffffffff:
+    if not 1 < pid <= 0xFFFFFFFF:
         return None
     handle = _open_process(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid)
     if not handle:
@@ -160,12 +188,16 @@ def identity(pid):
         group = started << 32 | pid
         with _handle(_open(group, JOB_OBJECT_QUERY)) as job:
             owned = bool(job) and _contains(job, handle)
-        return {"start": str(started), "executable": image.value, "session": session.value,
-                "process_group": group if owned else 0}
+        return {
+            "start": str(started),
+            "executable": image.value,
+            "session": session.value,
+            "process_group": group if owned else 0,
+        }
 
 
 def alive(pid):
-    if not 1 < pid <= 0xffffffff:
+    if not 1 < pid <= 0xFFFFFFFF:
         return False
     handle = _open_process(SYNCHRONIZE, False, pid)
     if not handle:
@@ -222,15 +254,33 @@ def attach(pid, *, persistent=False, resource_fd=None):
                 # Keep the original share-deny-write file object alive in the
                 # check child until it exits, including abrupt wrapper death.
                 remote = w.HANDLE()
-                _checked(_duplicate(_current_process(), msvcrt.get_osfhandle(resource_fd), proc,
-                                    ctypes.byref(remote), 0, False, 0))
+                _checked(
+                    _duplicate(
+                        _current_process(),
+                        msvcrt.get_osfhandle(resource_fd),
+                        proc,
+                        ctypes.byref(remote),
+                        0,
+                        False,
+                        0,
+                    )
+                )
             if persistent:
                 # Keep the name open across CLI invocations while the QA
                 # leader lives. Its non-inheritable query-only handle closes
                 # on leader exit; surviving descendants then die with the job.
                 remote = w.HANDLE()
-                _checked(_duplicate(_current_process(), job, proc, ctypes.byref(remote),
-                                    JOB_OBJECT_QUERY, False, 0))
+                _checked(
+                    _duplicate(
+                        _current_process(),
+                        job,
+                        proc,
+                        ctypes.byref(remote),
+                        JOB_OBJECT_QUERY,
+                        False,
+                        0,
+                    )
+                )
         except BaseException:
             close(job)
             raise
@@ -285,8 +335,11 @@ def _stdio(stack, stream, number):
     if stream is not None:
         source = msvcrt.get_osfhandle(stream.fileno())
     duplicate = w.HANDLE()
-    _checked(_duplicate(_current_process(), source, _current_process(), ctypes.byref(duplicate),
-                        0, True, 2))  # DUPLICATE_SAME_ACCESS
+    _checked(
+        _duplicate(
+            _current_process(), source, _current_process(), ctypes.byref(duplicate), 0, True, 2
+        )
+    )  # DUPLICATE_SAME_ACCESS
     stack.callback(close, duplicate.value)
     return duplicate.value
 
@@ -301,7 +354,9 @@ def _create_suspended(argv, cwd, environment, stdin, stdout, stderr, guard):
         startup.info.flags = 0x100  # STARTF_USESTDHANDLES
         startup.info.stdin = _stdio(stack, stdin, 0)
         startup.info.stdout = _stdio(stack, stdout, 1)
-        startup.info.stderr = startup.info.stdout if stderr == subprocess.STDOUT else _stdio(stack, stderr, 2)
+        startup.info.stderr = (
+            startup.info.stdout if stderr == subprocess.STDOUT else _stdio(stack, stderr, 2)
+        )
         stdio = list(dict.fromkeys((startup.info.stdin, startup.info.stdout, startup.info.stderr)))
         # Console pseudo-handles travel with the console and cannot appear
         # in PROC_THREAD_ATTRIBUTE_HANDLE_LIST (as in CPython's Popen).
@@ -317,9 +372,20 @@ def _create_suspended(argv, cwd, environment, stdin, stdout, stderr, guard):
         _checked(_init_attrs(attributes, attribute_count, 0, ctypes.byref(length)))
         stack.callback(_delete_attrs, attributes)
         if inherited:
-            _checked(_update_attrs(attributes, 0, 0x20002, handles, ctypes.sizeof(handles), None, None))
-        _checked(_update_attrs(attributes, 0, 0x2000D, ctypes.byref(guard_handle),
-                               ctypes.sizeof(guard_handle), None, None))
+            _checked(
+                _update_attrs(attributes, 0, 0x20002, handles, ctypes.sizeof(handles), None, None)
+            )
+        _checked(
+            _update_attrs(
+                attributes,
+                0,
+                0x2000D,
+                ctypes.byref(guard_handle),
+                ctypes.sizeof(guard_handle),
+                None,
+                None,
+            )
+        )
         startup.attributes = ctypes.addressof(attributes)
         env = None
         if environment is not None:
@@ -331,15 +397,38 @@ def _create_suspended(argv, cwd, environment, stdin, stdout, stderr, guard):
         if "\0" in command:
             raise ValueError("NUL in command")
         command_line = ctypes.create_unicode_buffer(command)
-        flags = 0x80000 | 0x400 | 0x4  # EXTENDED_STARTUPINFO_PRESENT | UNICODE_ENVIRONMENT | SUSPENDED
-        _checked(_create_process(None, command_line, None, None, bool(inherited), flags, env,
-                                 os.fspath(cwd) if cwd is not None else None,
-                                 ctypes.byref(startup), ctypes.byref(info)))
+        flags = (
+            0x80000 | 0x400 | 0x4
+        )  # EXTENDED_STARTUPINFO_PRESENT | UNICODE_ENVIRONMENT | SUSPENDED
+        _checked(
+            _create_process(
+                None,
+                command_line,
+                None,
+                None,
+                bool(inherited),
+                flags,
+                env,
+                os.fspath(cwd) if cwd is not None else None,
+                ctypes.byref(startup),
+                ctypes.byref(info),
+            )
+        )
         return info
 
 
-def spawn(argv, *, persistent=False, resource_fd=None, cwd=None, env=None, stdin=None, stdout=None,
-          stderr=None, close_fds=True):
+def spawn(
+    argv,
+    *,
+    persistent=False,
+    resource_fd=None,
+    cwd=None,
+    env=None,
+    stdin=None,
+    stdout=None,
+    stderr=None,
+    close_fds=True,
+):
     if not close_fds:
         raise ValueError("managed Windows commands inherit only explicit handles")
     with _handle(_checked(_create_job(None, None))) as guard:
@@ -381,11 +470,15 @@ def listener_pids(port):
     # MIB_TCPROW_OWNER_PID / MIB_TCP6ROW_OWNER_PID store the local port in
     # network order and scope addresses differently. Both use four-byte integer fields.
     for family, row_size, port_offset, pid_offset in (
-            (socket.AF_INET, 24, 8, 20), (socket.AF_INET6, 56, 20, 52)):
+        (socket.AF_INET, 24, 8, 20),
+        (socket.AF_INET6, 56, 20, 52),
+    ):
         size = DWORD(0)
         for _ in range(8):
             buffer = ctypes.create_string_buffer(size.value) if size.value else None
-            status = _tcp_table(buffer, ctypes.byref(size), False, family, 3, 0)  # OWNER_PID_LISTENER
+            status = _tcp_table(
+                buffer, ctypes.byref(size), False, family, 3, 0
+            )  # OWNER_PID_LISTENER
             if status == ERROR_INSUFFICIENT_BUFFER:
                 continue
             if status or buffer is None:
@@ -395,7 +488,9 @@ def listener_pids(port):
                 raise OSError("Windows returned an incomplete TCP listener table")
             for i in range(count):
                 offset = 4 + i * row_size
-                endpoint = socket.ntohs(DWORD.from_buffer(buffer, offset + port_offset).value & 0xffff)
+                endpoint = socket.ntohs(
+                    DWORD.from_buffer(buffer, offset + port_offset).value & 0xFFFF
+                )
                 if endpoint == port:
                     result.add(DWORD.from_buffer(buffer, offset + pid_offset).value)
             break

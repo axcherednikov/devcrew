@@ -25,17 +25,25 @@ class LocalizationTests(unittest.TestCase):
         brief = SKILLS / "devcrew-brief/references"
         project = SKILLS / "devcrew-setup/assets/project"
         families = {
-            brief: [*brief.glob("template-*.md"), *(brief / name for name in ("adr.md", "glossary.md", "misses-log.md"))],
+            brief: [
+                *brief.glob("template-*.md"),
+                *(brief / name for name in ("adr.md", "glossary.md", "misses-log.md")),
+            ],
             project: [p for p in project.rglob("*.md") if "ru" not in p.relative_to(project).parts],
         }
-        for skill, filename in (("handoff", "template.md"), ("review", "comment-template.md"),
-                                ("commit-message", "commit-template.md")):
+        for skill, filename in (
+            ("handoff", "template.md"),
+            ("review", "comment-template.md"),
+            ("commit-message", "commit-template.md"),
+        ):
             directory = SKILLS / f"devcrew-{skill}/references"
             families[directory] = [directory / filename]
         for directory, files in families.items():
             russian = directory / "ru"
-            self.assertEqual({p.relative_to(directory) for p in files},
-                             {p.relative_to(russian) for p in russian.rglob("*.md")})
+            self.assertEqual(
+                {p.relative_to(directory) for p in files},
+                {p.relative_to(russian) for p in russian.rglob("*.md")},
+            )
             for path in files:
                 with self.subTest(path=path):
                     self.assertNotRegex(path.read_text(), CYRILLIC)
@@ -43,7 +51,11 @@ class LocalizationTests(unittest.TestCase):
 
     def test_task_cards_use_identical_machine_fields_in_both_languages(self):
         project = SKILLS / "devcrew-setup/assets/project"
+
         def fields(path):
             return re.search(r"```yaml\n(.+?)\n```", path.read_text(), re.DOTALL).group(1)
-        self.assertEqual(fields(project / "task-ledger.template.md"),
-                         fields(project / "ru/task-ledger.template.md"))
+
+        self.assertEqual(
+            fields(project / "task-ledger.template.md"),
+            fields(project / "ru/task-ledger.template.md"),
+        )

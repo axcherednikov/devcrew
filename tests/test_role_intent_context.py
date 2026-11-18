@@ -1,4 +1,5 @@
 """Bound role delivery without weakening stored original-intent certification."""
+
 import copy
 import hashlib
 import json
@@ -26,17 +27,22 @@ class RoleIntentContextTests(unittest.TestCase):
         full = devcrew_phase.original_intent_context(self.manifest, "P1")
         bounded = devcrew_phase._role_intent_context(self.manifest, "P1")
         state = bounded["planning_assessment"]
-        self.assertEqual(state, {
-            "status": "ASSESSED",
-            "state_sha256": hashlib.sha256(
-                devcrew_phase._canonical_json(full["planning_assessment"])).hexdigest(),
-        })
+        self.assertEqual(
+            state,
+            {
+                "status": "ASSESSED",
+                "state_sha256": hashlib.sha256(
+                    devcrew_phase._canonical_json(full["planning_assessment"])
+                ).hexdigest(),
+            },
+        )
         for key in full.keys() - {"planning_assessment"}:
             self.assertEqual(bounded[key], full[key], key)
         self.assertEqual(self.manifest, before)
         self.assertEqual(
             bounded["effective_requirements"]["R1"]["statement"],
-            "Recommend a different payment card when SBP is blocked.")
+            "Recommend a different payment card when SBP is blocked.",
+        )
         bounded["sources"].clear()
         bounded["decisions"].clear()
         self.assertEqual(self.manifest, before)
@@ -52,7 +58,8 @@ class RoleIntentContextTests(unittest.TestCase):
         self.assertEqual(len(json.dumps(first)), len(json.dumps(second)))
         self.assertNotEqual(
             first["planning_assessment"]["state_sha256"],
-            second["planning_assessment"]["state_sha256"])
+            second["planning_assessment"]["state_sha256"],
+        )
         full = devcrew_phase.original_intent_context(self.manifest, "P1")
         self.assertIn("assessment", full["planning_assessment"])
         self.assertGreater(len(json.dumps(full)), len(json.dumps(second)) + 100000)
@@ -63,11 +70,13 @@ class RoleIntentContextTests(unittest.TestCase):
                 manifest = copy.deepcopy(self.manifest)
                 if repair:
                     manifest["phases"][0]["active_local_fix"] = {
-                        "rejected_candidate_sha": "b" * 40, "findings": ["Local finding"]}
+                        "rejected_candidate_sha": "b" * 40,
+                        "findings": ["Local finding"],
+                    }
                 result = devcrew_phase.executor_input(manifest, self.fixture.task_root)
                 self.assertEqual(
-                    result["original_intent"],
-                    devcrew_phase._role_intent_context(manifest, "P1"))
+                    result["original_intent"], devcrew_phase._role_intent_context(manifest, "P1")
+                )
                 self.assertNotIn("assessment", result["original_intent"]["planning_assessment"])
 
     def test_final_review_keeps_independent_sources_but_not_host_judgment_text(self):

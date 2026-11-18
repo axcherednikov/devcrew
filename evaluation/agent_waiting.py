@@ -54,11 +54,23 @@ def main():
         "reference_30s": simulate(30),
         "reference_short_sleep_5s_status": simulate(5),
     }
-    boundary = simulate(60, events=(
-        (60, "task-boundary", "agent-boundary", "executor", "implementation", "success", "dispatch-boundary"),
-    ))
-    resumed = simulate(60, events=EVENTS[3:], start_time=200,
-                       saved_terminal={"dispatch-a": "success"})
+    boundary = simulate(
+        60,
+        events=(
+            (
+                60,
+                "task-boundary",
+                "agent-boundary",
+                "executor",
+                "implementation",
+                "success",
+                "dispatch-boundary",
+            ),
+        ),
+    )
+    resumed = simulate(
+        60, events=EVENTS[3:], start_time=200, saved_terminal={"dispatch-a": "success"}
+    )
     native = schedules["native_60s"]
     assert native["empty_wakeups"] < schedules["reference_30s"]["empty_wakeups"]
     assert native["empty_wakeups"] < schedules["reference_short_sleep_5s_status"]["empty_wakeups"]
@@ -68,15 +80,21 @@ def main():
     assert len(resumed["unique_terminal_results"]) == 3
     assert resumed["duplicate_terminal_deliveries"] == 1
     for name, result in schedules.items():
-        print(f"SIMULATION {name}: empty_coordinator_wakeups={result['empty_wakeups']} "
-              f"delivered_events={result['delivered_events']} "
-              f"unique_terminal_results={len(result['unique_terminal_results'])} "
-              f"duplicate_terminal_deliveries={result['duplicate_terminal_deliveries']} "
-              f"distinct_identities={len(result['identities'])}")
+        print(
+            f"SIMULATION {name}: empty_coordinator_wakeups={result['empty_wakeups']} "
+            f"delivered_events={result['delivered_events']} "
+            f"unique_terminal_results={len(result['unique_terminal_results'])} "
+            f"duplicate_terminal_deliveries={result['duplicate_terminal_deliveries']} "
+            f"distinct_identities={len(result['identities'])}"
+        )
     print("SIMULATION boundary_exactly_60s: delivered=1 empty_wakeups=0")
-    print("SIMULATION resumed_with_saved_result: unique_terminal_results=3 duplicate_terminal_deliveries=1")
+    print(
+        "SIMULATION resumed_with_saved_result: unique_terminal_results=3 duplicate_terminal_deliveries=1"
+    )
     print("Token telemetry: UNKNOWN (no trustworthy runtime measurement supplied).")
-    print("All counts above are virtual-time simulation results, not historical or billing measurements.")
+    print(
+        "All counts above are virtual-time simulation results, not historical or billing measurements."
+    )
 
 
 if __name__ == "__main__":

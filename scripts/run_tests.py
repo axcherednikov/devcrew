@@ -58,8 +58,11 @@ class _RecordingLoader(unittest.TestLoader):
 
     def loadTestsFromModule(self, module, *, pattern=None):
         name = getattr(module, "__name__", "")
-        hooks = tuple(hook for hook in ("setUpModule", "tearDownModule", "load_tests")
-                      if callable(getattr(module, hook, None)))
+        hooks = tuple(
+            hook
+            for hook in ("setUpModule", "tearDownModule", "load_tests")
+            if callable(getattr(module, hook, None))
+        )
         suite = super().loadTestsFromModule(module, pattern=pattern)
         self.module_hooks[name] = hooks
         if type(suite) is not unittest.TestSuite:
@@ -79,8 +82,7 @@ def _load_named_tests(loader, selectors):
 
 
 def _suite_error_tests(loader, suite):
-    return [test for test in _flatten(suite)
-            if type(test).__name__ == "_FailedTest"]
+    return [test for test in _flatten(suite) if type(test).__name__ == "_FailedTest"]
 
 
 def _print_discovery_errors(loader):
@@ -118,23 +120,32 @@ def _parallel_blockers(selected, loader, discovered_suite):
     for module_name in sorted(relevant_modules):
         hooks = loader.module_hooks.get(module_name, ())
         if hooks:
-            reasons.append(f"module hooks are unsupported in parallel mode ({', '.join(hooks)}): {module_name}")
+            reasons.append(
+                f"module hooks are unsupported in parallel mode ({', '.join(hooks)}): {module_name}"
+            )
         module = sys.modules.get(module_name)
         if module is not None:
             for attr in ("setUpModule", "tearDownModule", "load_tests"):
                 if callable(getattr(module, attr, None)) and attr not in hooks:
-                    reasons.append(f"module hook is unsupported in parallel mode ({attr}): {module_name}")
+                    reasons.append(
+                        f"module hook is unsupported in parallel mode ({attr}): {module_name}"
+                    )
     for suite_name, suite_type in loader.custom_suites:
         if suite_name in relevant_modules:
             reasons.append(f"custom suite returned by {suite_name} is unsupported: {suite_type}")
     for suite in _walk_suites(discovered_suite):
         if type(suite) is not unittest.TestSuite and any(
-                id(case) in selected_objects for case in _flatten(suite)):
-            reasons.append(f"custom suite type is unsupported: {type(suite).__module__}.{type(suite).__qualname__}")
+            id(case) in selected_objects for case in _flatten(suite)
+        ):
+            reasons.append(
+                f"custom suite type is unsupported: {type(suite).__module__}.{type(suite).__qualname__}"
+            )
     for callback, _args, _kwargs in getattr(unittest.case, "_module_cleanups", ()):
         callback_module = getattr(callback, "__module__", None)
         if callback_module in relevant_modules:
-            reasons.append(f"registered module cleanup is unsupported in parallel mode: {callback_module}")
+            reasons.append(
+                f"registered module cleanup is unsupported in parallel mode: {callback_module}"
+            )
     return list(dict.fromkeys(reasons))
 
 
@@ -162,8 +173,14 @@ def _build_groups(selected):
         groups.setdefault(key, []).append(_test_id(test))
     plan = []
     for (module, qualname), test_ids in groups.items():
-        plan.append({"module": module, "qualname": qualname, "test_ids": test_ids,
-                     "label": f"{module}.{qualname}"})
+        plan.append(
+            {
+                "module": module,
+                "qualname": qualname,
+                "test_ids": test_ids,
+                "label": f"{module}.{qualname}",
+            }
+        )
     return plan
 
 
@@ -219,7 +236,9 @@ def _worker_main(connection, group, start_dir, verbosity):
             expected_class = f"{group['module']}.{group['qualname']}"
             actual_class = f"{type(test).__module__}.{type(test).__qualname__}"
             if actual_class != expected_class or _test_id(test) != test_id:
-                raise RuntimeError(f"worker reloaded a different test: expected {test_id}, got {_test_id(test)}")
+                raise RuntimeError(
+                    f"worker reloaded a different test: expected {test_id}, got {_test_id(test)}"
+                )
             tests.append(test)
         suite = unittest.TestSuite(tests)
         report = io.StringIO()
@@ -252,7 +271,9 @@ def _worker_main(connection, group, start_dir, verbosity):
             "failures": [_result_entry(test, detail) for test, detail in result.failures],
             "errors": [_result_entry(test, detail) for test, detail in result.errors],
             "skipped": [_result_entry(test, reason) for test, reason in result.skipped],
-            "expected_failures": [_result_entry(test, detail) for test, detail in result.expectedFailures],
+            "expected_failures": [
+                _result_entry(test, detail) for test, detail in result.expectedFailures
+            ],
             "unexpected_successes": [_result_entry(test) for test in result.unexpectedSuccesses],
             "output": report.getvalue(),
             "process_stdout": process_stdout,
@@ -260,8 +281,11 @@ def _worker_main(connection, group, start_dir, verbosity):
             "successful": result.wasSuccessful(),
         }
     except BaseException as exc:
-        payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}",
-                   "traceback": traceback.format_exc()}
+        payload = {
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": traceback.format_exc(),
+        }
     try:
         if payload is not None:
             connection.send(payload)
@@ -274,8 +298,12 @@ def _worker_main(connection, group, start_dir, verbosity):
 
 
 def _ps_table():
-    result = subprocess.run(["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart=,command="],
-                            capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart=,command="],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     table = {}
     for line in result.stdout.splitlines():
         parts = line.strip().split(None, 9)
@@ -285,9 +313,12 @@ def _ps_table():
             pid, ppid, pgid = map(int, parts[:3])
         except ValueError:
             continue
-        table[pid] = {"ppid": ppid, "pgid": pgid,
-                      "state": parts[3],
-                      "identity": (" ".join(parts[4:9]), parts[9])}
+        table[pid] = {
+            "ppid": ppid,
+            "pgid": pgid,
+            "state": parts[3],
+            "identity": (" ".join(parts[4:9]), parts[9]),
+        }
     return table
 
 
@@ -347,9 +378,13 @@ def _owned_alive(owned):
         current = _ps_table()
     except (OSError, subprocess.CalledProcessError):
         return dict(owned)
-    return {pid: identity for pid, identity in owned.items()
-            if pid in current and current[pid]["identity"] == identity
-            and not current[pid]["state"].startswith("Z")}
+    return {
+        pid: identity
+        for pid, identity in owned.items()
+        if pid in current
+        and current[pid]["identity"] == identity
+        and not current[pid]["state"].startswith("Z")
+    }
 
 
 def _terminate_owned(owned):
@@ -411,24 +446,23 @@ def _stop_workers(active, histories):
 def _finish_posix_worker(process, connection, label, payload, histories, infra_errors):
     # A worker waits for this acknowledgement after sending its result,
     # keeping the parent process tree available for a final snapshot.
-    owned, warning = _snapshot_worker_tree(
-        process.pid, histories.get(process.pid))
+    owned, warning = _snapshot_worker_tree(process.pid, histories.get(process.pid))
     if warning:
         infra_errors.append(warning)
     descendants = {
-        pid: identity for pid, identity in owned.items()
-        if pid != process.pid and
-        "multiprocessing.resource_tracker" not in identity[1]
+        pid: identity
+        for pid, identity in owned.items()
+        if pid != process.pid and "multiprocessing.resource_tracker" not in identity[1]
     }
     if _owned_alive(descendants):
         alive = _terminate_owned(descendants)
         if alive:
-            infra_errors.append(
-                f"worker for {label} left live descendants after forced cleanup")
+            infra_errors.append(f"worker for {label} left live descendants after forced cleanup")
         else:
             infra_errors.append(
                 f"worker for {label} returned while child processes were still live; "
-                "owned descendants were stopped")
+                "owned descendants were stopped"
+            )
     if process.is_alive() and payload is not None:
         try:
             connection.send(True)
@@ -438,26 +472,28 @@ def _finish_posix_worker(process, connection, label, payload, histories, infra_e
     if process.is_alive():
         infra_errors.append(
             f"worker for {label} did not exit after its result acknowledgement; "
-            "forced cleanup was required")
-        worker_tree, warning = _snapshot_worker_tree(
-            process.pid, histories.get(process.pid))
+            "forced cleanup was required"
+        )
+        worker_tree, warning = _snapshot_worker_tree(process.pid, histories.get(process.pid))
         if warning:
             infra_errors.append(warning)
         alive = _terminate_owned(worker_tree)
         if alive:
-            infra_errors.append(
-                f"worker for {label} remained alive after forced cleanup")
+            infra_errors.append(f"worker for {label} remained alive after forced cleanup")
         process.kill()
         process.join(timeout=1)
 
 
 def _finish_windows_worker(process, connection, label, payload, job, infra_errors):
     import devcrew_winprocess as winprocess
+
     group, handle = job
     try:
         if set(winprocess.members(group)) - {process.pid}:
-            infra_errors.append(f"worker for {label} returned while child processes were still live; "
-                                "owned descendants were stopped")
+            infra_errors.append(
+                f"worker for {label} returned while child processes were still live; "
+                "owned descendants were stopped"
+            )
         if process.is_alive() and payload is not None:
             try:
                 connection.send(True)
@@ -486,13 +522,16 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
         while pending and len(active) < jobs:
             index, group = pending.pop(0)
             parent_conn, child_conn = context.Pipe(duplex=True)
-            process = context.Process(target=_worker_main,
-                                      args=(child_conn, group, str(start_dir), verbosity),
-                                      name=f"unittest-{group['label']}")
+            process = context.Process(
+                target=_worker_main,
+                args=(child_conn, group, str(start_dir), verbosity),
+                name=f"unittest-{group['label']}",
+            )
             try:
                 process.start()
                 if os.name == "nt":
                     import devcrew_winprocess as winprocess
+
                     windows_jobs[process] = winprocess.attach(process.pid)
                     parent_conn.send("job_ready")
             except KeyboardInterrupt:
@@ -526,7 +565,8 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
             if os.name != "nt" and now - last_scan >= _PROCESS_SCAN_SECONDS:
                 for process in list(active):
                     histories[process.pid], warning = _snapshot_worker_tree(
-                        process.pid, histories.get(process.pid))
+                        process.pid, histories.get(process.pid)
+                    )
                     if warning:
                         infra_errors.append(warning)
                 last_scan = now
@@ -541,7 +581,10 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
                         payload = None
                     if isinstance(payload, dict) and payload.get("event") == "detached_child":
                         histories[process.pid], warning = _snapshot_worker_tree(
-                            process.pid, histories.get(process.pid), registered_pid=payload.get("pid"))
+                            process.pid,
+                            histories.get(process.pid),
+                            registered_pid=payload.get("pid"),
+                        )
                         if warning:
                             infra_errors.append(warning)
                         try:
@@ -561,18 +604,28 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
                     finished.append((process, connection, group, index, payload))
             for process, connection, group, index, payload in finished:
                 if os.name == "nt":
-                    _finish_windows_worker(process, connection, group["label"], payload,
-                                           windows_jobs.pop(process), infra_errors)
+                    _finish_windows_worker(
+                        process,
+                        connection,
+                        group["label"],
+                        payload,
+                        windows_jobs.pop(process),
+                        infra_errors,
+                    )
                 else:
-                    _finish_posix_worker(process, connection, group["label"], payload,
-                                         histories, infra_errors)
+                    _finish_posix_worker(
+                        process, connection, group["label"], payload, histories, infra_errors
+                    )
                 connection.close()
                 active.pop(process, None)
                 if payload is None:
                     infra_errors.append(
-                        f"worker for {group['label']} exited without a result (exit code {process.exitcode})")
+                        f"worker for {group['label']} exited without a result (exit code {process.exitcode})"
+                    )
                     if os.name != "nt":
-                        owned, warning = _snapshot_worker_tree(process.pid, histories.get(process.pid))
+                        owned, warning = _snapshot_worker_tree(
+                            process.pid, histories.get(process.pid)
+                        )
                         if warning:
                             infra_errors.append(warning)
                         _signal_owned(owned, signal.SIGTERM)
@@ -582,10 +635,15 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
                 elif not payload.get("ok"):
                     infra_errors.append(
                         f"worker for {group['label']} failed protocol/reload validation: {payload.get('error')}\n"
-                        f"{payload.get('traceback', '')}")
+                        f"{payload.get('traceback', '')}"
+                    )
                     outputs[index] = {"group": group, "payload": None}
-                elif payload.get("ids") != group["test_ids"] or payload.get("tests_run", 0) > len(group["test_ids"]):
-                    infra_errors.append(f"worker for {group['label']} returned a mismatched ID/count result")
+                elif payload.get("ids") != group["test_ids"] or payload.get("tests_run", 0) > len(
+                    group["test_ids"]
+                ):
+                    infra_errors.append(
+                        f"worker for {group['label']} returned a mismatched ID/count result"
+                    )
                     outputs[index] = {"group": group, "payload": None}
                 else:
                     outputs[index] = {"group": group, "payload": payload}
@@ -598,6 +656,7 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
                 for process, (connection, _, _) in active.items():
                     if process in windows_jobs:
                         import devcrew_winprocess as winprocess
+
                         winprocess.close(windows_jobs.pop(process)[1])
                     elif process.is_alive():
                         process.kill()  # A just-started worker still at its gate.
@@ -614,10 +673,20 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
     finally:
         for _, handle in windows_jobs.values():
             import devcrew_winprocess as winprocess
+
             winprocess.close(handle)
 
-    total = {name: 0 for name in ("tests_run", "failures", "errors", "skipped",
-                                  "expected_failures", "unexpected_successes")}
+    total = {
+        name: 0
+        for name in (
+            "tests_run",
+            "failures",
+            "errors",
+            "skipped",
+            "expected_failures",
+            "unexpected_successes",
+        )
+    }
     for index in range(len(groups)):
         item = outputs.get(index, {"group": groups[index], "payload": None})
         payload = item["payload"]
@@ -637,9 +706,13 @@ def _parallel_run(groups, jobs, start_dir, verbosity):
 def _print_parallel_summary(total, infra_errors):
     print(f"Ran {total['tests_run']} tests across class workers.")
     fragments = []
-    for key, label in (("failures", "failures"), ("errors", "errors"), ("skipped", "skipped"),
-                       ("expected_failures", "expected failures"),
-                       ("unexpected_successes", "unexpected successes")):
+    for key, label in (
+        ("failures", "failures"),
+        ("errors", "errors"),
+        ("skipped", "skipped"),
+        ("expected_failures", "expected failures"),
+        ("unexpected_successes", "unexpected successes"),
+    ):
         if total[key]:
             fragments.append(f"{label}={total[key]}")
     if fragments:
@@ -677,8 +750,11 @@ def main(argv=None):
         sys.path.insert(0, str(project_root))
     loader = _RecordingLoader()
     try:
-        suite = (_load_named_tests(loader, args.selectors) if args.selectors else
-                 loader.discover(str(start_dir), pattern=args.pattern))
+        suite = (
+            _load_named_tests(loader, args.selectors)
+            if args.selectors
+            else loader.discover(str(start_dir), pattern=args.pattern)
+        )
         selected = list(_flatten(suite))
     except (ImportError, OSError, ValueError) as exc:
         print(f"test discovery/selection error: {exc}", file=sys.stderr)
@@ -720,8 +796,12 @@ def main(argv=None):
         return code
     total, infra_errors = result
     _print_parallel_summary(total, infra_errors)
-    successful = (not infra_errors and not total["failures"] and not total["errors"] and
-                  not total["unexpected_successes"])
+    successful = (
+        not infra_errors
+        and not total["failures"]
+        and not total["errors"]
+        and not total["unexpected_successes"]
+    )
     return 0 if successful else 1
 
 

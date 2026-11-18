@@ -22,7 +22,10 @@ class LanguageProfileHandoffContract(unittest.TestCase):
 
     def test_polyglot_profile_is_limited_to_affected_languages(self):
         self.assertIn("affected languages", self.policy)
-        self.assertIn("Do not inventory unrelated parts of a polyglot repository", " ".join(self.policy.split()))
+        self.assertIn(
+            "Do not inventory unrelated parts of a polyglot repository",
+            " ".join(self.policy.split()),
+        )
 
     def test_supported_range_sets_minimum_compatibility(self):
         self.assertIn("target its minimum", self.policy)
@@ -33,10 +36,19 @@ class LanguageProfileHandoffContract(unittest.TestCase):
         self.assertIn("is a blocker", self.policy)
 
     def test_executor_package_is_self_contained(self):
-        for field in ("CONFIRMED CONTEXT", "IN SCOPE", "OUT OF SCOPE", "ACCEPTANCE",
-                      "RELEVANT ADR", "RELEVANT FILES", "REPOSITORY INSTRUCTIONS",
-                      "VERIFICATION STRATEGY", "SAFETY BOUNDARIES", "DELIVERABLES",
-                      "OPEN DECISIONS / BLOCKERS"):
+        for field in (
+            "CONFIRMED CONTEXT",
+            "IN SCOPE",
+            "OUT OF SCOPE",
+            "ACCEPTANCE",
+            "RELEVANT ADR",
+            "RELEVANT FILES",
+            "REPOSITORY INSTRUCTIONS",
+            "VERIFICATION STRATEGY",
+            "SAFETY BOUNDARIES",
+            "DELIVERABLES",
+            "OPEN DECISIONS / BLOCKERS",
+        ):
             with self.subTest(field=field):
                 self.assertIn(field, self.autopilot)
 

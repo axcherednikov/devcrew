@@ -58,20 +58,23 @@ class ReceiptConcurrencyTests(unittest.TestCase):
         self.path = devcrew_worktree.location(self.project, "T01")[-1]
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.project), *args],
-                              capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            ["git", "-C", str(self.project), *args], capture_output=True, text=True, check=True
+        ).stdout.strip()
 
     def test_delayed_resolve_cannot_undo_writer_dispatch_or_nonce(self):
         (self.project / "tracked.txt").write_text("writer changes\n")
         ctx = multiprocessing.get_context("spawn")
         paused, resume, results = ctx.Event(), ctx.Event(), ctx.Queue()
-        resolver = ctx.Process(target=delayed_lifecycle_resolve,
-                               args=(self.project, paused, resume, results))
+        resolver = ctx.Process(
+            target=delayed_lifecycle_resolve, args=(self.project, paused, resume, results)
+        )
         try:
             resolver.start()
             self.assertTrue(paused.wait(timeout=15))
-            devcrew_worktree.validate_dispatch(self.project, "T01", str(self.project),
-                                               self.receipt["expected_head"], self.receipt)
+            devcrew_worktree.validate_dispatch(
+                self.project, "T01", str(self.project), self.receipt["expected_head"], self.receipt
+            )
             dispatched = json.loads(self.path.read_text())
             self.assertTrue(dispatched["writer_dispatched_since_snapshot"])
             self.assertFalse(dispatched["last_known_clean"])
@@ -83,8 +86,13 @@ class ReceiptConcurrencyTests(unittest.TestCase):
             self.assertTrue(result["outcome"].startswith("TASK_WORKTREE_STATE_CONFLICT"), result)
             self.assertEqual(json.loads(self.path.read_text()), dispatched)
             with self.assertRaisesRegex(ValueError, "TASK_WORKTREE_INVALID"):
-                devcrew_worktree.validate_dispatch(self.project, "T01", str(self.project),
-                                                   self.receipt["expected_head"], self.receipt)
+                devcrew_worktree.validate_dispatch(
+                    self.project,
+                    "T01",
+                    str(self.project),
+                    self.receipt["expected_head"],
+                    self.receipt,
+                )
         finally:
             resume.set()
             if resolver.is_alive():
@@ -113,8 +121,9 @@ class ReceiptConcurrencyTests(unittest.TestCase):
         tracked.write_text("base\n")
         ctx = multiprocessing.get_context("spawn")
         paused, resume, results = ctx.Event(), ctx.Event(), ctx.Queue()
-        resolver = ctx.Process(target=delayed_lifecycle_resolve,
-                               args=(self.project, paused, resume, results))
+        resolver = ctx.Process(
+            target=delayed_lifecycle_resolve, args=(self.project, paused, resume, results)
+        )
         try:
             resolver.start()
             self.assertTrue(paused.wait(timeout=15))
@@ -151,8 +160,10 @@ class ReceiptConcurrencyTests(unittest.TestCase):
         paused, attempted, release, finished = gates
         results = ctx.Queue()
         snapshot = json.loads(self.path.read_text())
-        processes = [ctx.Process(target=receipt_writer, args=(self.path, snapshot, first, gates, results))
-                     for first in (True, False)]
+        processes = [
+            ctx.Process(target=receipt_writer, args=(self.path, snapshot, first, gates, results))
+            for first in (True, False)
+        ]
         try:
             for process in processes:
                 process.start()
@@ -160,16 +171,23 @@ class ReceiptConcurrencyTests(unittest.TestCase):
             self.assertTrue(attempted.wait(timeout=15))
             self.assertFalse(finished.wait(timeout=0.2), "receipt writer escaped the held lock")
             release.set()
-            outcomes = {result["first"]: result["outcome"] for result in
-                        (results.get(timeout=15), results.get(timeout=15))}
+            outcomes = {
+                result["first"]: result["outcome"]
+                for result in (results.get(timeout=15), results.get(timeout=15))
+            }
             for process in processes:
                 process.join(timeout=15)
                 self.assertEqual(process.exitcode, 0)
             self.assertEqual(outcomes[True], "SUCCESS")
             self.assertTrue(outcomes[False].startswith("TASK_WORKTREE_STATE_CONFLICT"), outcomes)
-            self.assertEqual(json.loads(self.path.read_text()),
-                             dict(snapshot, last_known_clean=False,
-                                  receipt_revision=snapshot["receipt_revision"] + 1))
+            self.assertEqual(
+                json.loads(self.path.read_text()),
+                dict(
+                    snapshot,
+                    last_known_clean=False,
+                    receipt_revision=snapshot["receipt_revision"] + 1,
+                ),
+            )
         finally:
             release.set()
             for process in processes:
@@ -182,7 +200,9 @@ class ReceiptConcurrencyTests(unittest.TestCase):
     def test_creation_cannot_replace_an_existing_receipt(self):
         snapshot = json.loads(self.path.read_text())
         with self.assertRaisesRegex(ValueError, "TASK_WORKTREE_STATE_CONFLICT"):
-            devcrew_worktree._atomic_json(self.path, dict(snapshot, expected_head="a" * 40), expected=None)
+            devcrew_worktree._atomic_json(
+                self.path, dict(snapshot, expected_head="a" * 40), expected=None
+            )
         self.assertEqual(json.loads(self.path.read_text()), snapshot)
 
     def test_legacy_read_only_resolve_preserves_json_and_first_write_adds_revision(self):
@@ -231,8 +251,9 @@ class ReceiptConcurrencyTests(unittest.TestCase):
         self.assertEqual(dirty["receipt_revision"], 3)
         self.assertEqual(dirty["receipt_nonce"], original["receipt_nonce"])
         tracked.write_text("base\n")
-        devcrew_worktree.validate_dispatch(self.project, "T01", str(self.project),
-                                           self.receipt["expected_head"], self.receipt)
+        devcrew_worktree.validate_dispatch(
+            self.project, "T01", str(self.project), self.receipt["expected_head"], self.receipt
+        )
         dispatched = json.loads(self.path.read_text())
         # Dispatch refreshes clean state first, then consumes the nonce.
         self.assertEqual(dispatched["receipt_revision"], 5)
@@ -246,25 +267,37 @@ class ReceiptConcurrencyTests(unittest.TestCase):
         sha = self.git("commit-tree", tree, "-p", base, "-m", "candidate fixture")
         ref = "refs/heads/" + self.receipt["branch"]
         advanced = devcrew_worktree.advance_expected_head(
-            self.project, "T01", base, sha,
-            before_advance=lambda: self.git("update-ref", ref, sha, base))
+            self.project,
+            "T01",
+            base,
+            sha,
+            before_advance=lambda: self.git("update-ref", ref, sha, base),
+        )
         self.assertEqual(advanced["receipt_revision"], 6)
         self.assertNotEqual(advanced["receipt_nonce"], dispatched["receipt_nonce"])
         self.assertEqual(json.loads(self.path.read_text()), advanced)
         self.assertEqual(self.git("rev-parse", "HEAD"), sha)
         with self.assertRaises(subprocess.CalledProcessError):
             devcrew_worktree.advance_expected_head(
-                self.project, "T01", sha, sha,
-                before_advance=lambda: self.git("update-ref", ref, sha, base))
+                self.project,
+                "T01",
+                sha,
+                sha,
+                before_advance=lambda: self.git("update-ref", ref, sha, base),
+            )
         self.assertEqual(json.loads(self.path.read_text()), advanced)
         self.assertEqual(self.git("rev-parse", "HEAD"), sha)
 
     def test_linked_creation_and_request_refresh_advance_revisions(self):
-        receipt = devcrew_worktree.create(self.project, "T_LINK", worktree_request="Use a worktree for this task")
+        receipt = devcrew_worktree.create(
+            self.project, "T_LINK", worktree_request="Use a worktree for this task"
+        )
         path = devcrew_worktree.location(self.project, "T_LINK")[-1]
         original = json.loads(path.read_text())
         self.assertEqual(original["receipt_revision"], 1)
-        refreshed = devcrew_worktree.resolve(self.project, "T_LINK", worktree_request="Keep this requested worktree")
+        refreshed = devcrew_worktree.resolve(
+            self.project, "T_LINK", worktree_request="Keep this requested worktree"
+        )
         stored = json.loads(path.read_text())
         self.assertEqual(stored["receipt_revision"], 3)
         self.assertEqual(stored["worktree_request"], "Keep this requested worktree")

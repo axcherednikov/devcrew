@@ -32,16 +32,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         if self.path == "/slow":
             import time
+
             time.sleep(0.3)
             body = b'{"state":"ready"}'
             self.send_response(200)
         elif self.path == "/slow-drip":
             import time
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Transfer-Encoding", "chunked")
             self.end_headers()
-            for chunk in (b'{"state":', b'"rea', b'dy"', b'}'):
+            for chunk in (b'{"state":', b'"rea', b'dy"', b"}"):
                 try:
                     self.wfile.write(f"{len(chunk):X}\r\n".encode() + chunk + b"\r\n")
                     self.wfile.flush()
@@ -56,10 +58,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         elif self.path == "/slow-headers":
             import time
+
             self.connection.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n")
             time.sleep(0.3)
             try:
-                self.connection.sendall(b"Content-Length: 17\r\nConnection: close\r\n\r\n{\"state\":\"ready\"}")
+                self.connection.sendall(
+                    b'Content-Length: 17\r\nConnection: close\r\n\r\n{"state":"ready"}'
+                )
             except OSError:
                 pass
             return
@@ -72,9 +77,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.flush()
             if self.path.endswith("stall"):
                 import time
+
                 time.sleep(0.8)
             return
-        elif self.path in ("/invalid/large-int", "/invalid/deep", "/invalid/infinity", "/invalid/overflow"):
+        elif self.path in (
+            "/invalid/large-int",
+            "/invalid/deep",
+            "/invalid/infinity",
+            "/invalid/overflow",
+        ):
             body = {
                 "/invalid/large-int": b'{"value":' + b"9" * 5000 + b"}",
                 "/invalid/deep": b'{"value":' + b"[" * 10000 + b"0" + b"]" * 10000 + b"}",
@@ -153,11 +164,20 @@ class QaSessionTests(unittest.TestCase):
         self.project = pathlib.Path(self.temp.name) / "project"
         self.project.mkdir()
         (self.project / ".codex").mkdir()
-        (self.project / ".codex" / "devcrew.json").write_text(json.dumps({
-            "schema_version": 1,
-            "paths": {"context": "docs/context.md", "tasks": ".codex/tasks",
-                      "sessions": ".codex/sessions", "memory": "memory", "checks": ".codex/checks"},
-        }))
+        (self.project / ".codex" / "devcrew.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "paths": {
+                        "context": "docs/context.md",
+                        "tasks": ".codex/tasks",
+                        "sessions": ".codex/sessions",
+                        "memory": "memory",
+                        "checks": ".codex/checks",
+                    },
+                }
+            )
+        )
         self.scenario = self.project / "scenario.json"
         self.write_scenario()
 
@@ -167,20 +187,40 @@ class QaSessionTests(unittest.TestCase):
         self.temp.cleanup()
 
     def write_scenario(self, *, positive_status=200):
-        self.scenario.write_text(json.dumps({
-            "schema_version": 1,
-            "profile": {"base_url": f"http://127.0.0.1:{self.server.server_port}", "timeout_seconds": 1},
-            "scenarios": [
-                {"id": "known-object", "path": "/objects/known", "expected_status": positive_status,
-                 "expect_json": {"state": "ready", "id": "known-1"}},
-                {"id": "missing-object", "path": "/objects/missing", "expected_status": 404,
-                 "expect_json": {"error": "not found"}},
-            ],
-        }))
+        self.scenario.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "profile": {
+                        "base_url": f"http://127.0.0.1:{self.server.server_port}",
+                        "timeout_seconds": 1,
+                    },
+                    "scenarios": [
+                        {
+                            "id": "known-object",
+                            "path": "/objects/known",
+                            "expected_status": positive_status,
+                            "expect_json": {"state": "ready", "id": "known-1"},
+                        },
+                        {
+                            "id": "missing-object",
+                            "path": "/objects/missing",
+                            "expected_status": 404,
+                            "expect_json": {"error": "not found"},
+                        },
+                    ],
+                }
+            )
+        )
 
     def cli(self, *args):
-        return subprocess.run([sys.executable, "-B", str(CLI), *map(str, args)], cwd=ROOT,
-                              capture_output=True, text=True, timeout=10)
+        return subprocess.run(
+            [sys.executable, "-B", str(CLI), *map(str, args)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
 
     def test_run_records_real_safe_api_evidence_and_read_only_reports(self):
         run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
@@ -195,7 +235,9 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(reported.returncode, 0, reported.stderr)
         self.assertEqual(Handler.hits, ["/objects/known", "/objects/missing"])
         self.assertIn(run_id, reported.stdout)
-        stored = "\n".join(p.read_text(errors="ignore") for p in self.project.rglob("*") if p.is_file())
+        stored = "\n".join(
+            p.read_text(errors="ignore") for p in self.project.rglob("*") if p.is_file()
+        )
         self.assertNotIn(Handler.secret, stored)
         self.assertNotIn("token", stored)
 
@@ -213,12 +255,14 @@ class QaSessionTests(unittest.TestCase):
 
     def test_informational_response_then_invalid_final_status_is_readable(self):
         cases = (
-            (b"HTTP/1.1 103 Early Hints\r\n\r\n"
-             b"HTTP/1.1 malformed\r\n\r\n", "FAIL", None),
-            (b"HTTP/1.1 103 Early Hints\r\n\r\n"
-             b"HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n{\"state\":\"ready\"}", "PASS", 200),
-            (b"HTTP/1.1 103 Early Hints\r\n\r\n"
-             b"HTTP/1.1 600 Invalid\r\n\r\n", "FAIL", 600),
+            (b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 malformed\r\n\r\n", "FAIL", None),
+            (
+                b"HTTP/1.1 103 Early Hints\r\n\r\n"
+                b'HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n{"state":"ready"}',
+                "PASS",
+                200,
+            ),
+            (b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 600 Invalid\r\n\r\n", "FAIL", 600),
         )
         for response, expected, status_code in cases:
             with self.subTest(expected=expected, status_code=status_code):
@@ -228,13 +272,16 @@ class QaSessionTests(unittest.TestCase):
                 scenario["scenarios"][0]["expect_json"] = {"state": "ready"}
                 self.scenario.write_text(json.dumps(scenario))
 
-                run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+                run = self.cli(
+                    "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+                )
                 self.assertEqual(run.returncode, 0, run.stderr)
                 run_payload = json.loads(run.stdout)
                 self.assertEqual(run_payload["status"], expected)
                 listed = self.cli("qa", "list", "--project", self.project)
-                reported = self.cli("qa", "report", "--project", self.project,
-                                    "--run-id", run_payload["run_id"])
+                reported = self.cli(
+                    "qa", "report", "--project", self.project, "--run-id", run_payload["run_id"]
+                )
                 self.assertEqual(listed.returncode, 0, listed.stderr)
                 self.assertEqual(reported.returncode, 0, reported.stderr)
                 observation = json.loads(reported.stdout)["evidence"]["observations"][0]
@@ -263,29 +310,47 @@ class QaSessionTests(unittest.TestCase):
         }
         for case, headers in cases.items():
             with self.subTest(case=case):
-                status = {"invalid-status": b"600 Not Valid", "malformed-status": b"099 Not Valid",
-                          "malformed-line": b"bad status", "missing-status-separator": b"200",
-                          "protocol-switch": b"101 Switching Protocols"}.get(case, b"200 OK")
+                status = {
+                    "invalid-status": b"600 Not Valid",
+                    "malformed-status": b"099 Not Valid",
+                    "malformed-line": b"bad status",
+                    "missing-status-separator": b"200",
+                    "protocol-switch": b"101 Switching Protocols",
+                }.get(case, b"200 OK")
                 body = b'{"state":"ready"}'
                 if case in ("chunked-space", "chunked-tab", "unframed-chunked-ows"):
                     if case in ("chunked-space", "chunked-tab"):
                         body = f"{len(body):X}\r\n".encode() + body + b"\r\n0\r\n\r\n"
                     Handler.raw_responses[f"/raw/{case}"] = (
-                        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" + headers
-                        + b"Connection: close\r\n\r\n" + body)
+                        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                        + headers
+                        + b"Connection: close\r\n\r\n"
+                        + body
+                    )
                 elif case == "malformed-line":
                     Handler.raw_responses[f"/raw/{case}"] = b"bad status\r\n\r\n"
                 else:
                     Handler.raw_responses[f"/raw/{case}"] = (
-                        b"HTTP/1.1 " + status + b"\r\nContent-Type: application/json\r\n"
-                        + headers + b"Connection: close\r\n\r\n" + body)
+                        b"HTTP/1.1 "
+                        + status
+                        + b"\r\nContent-Type: application/json\r\n"
+                        + headers
+                        + b"Connection: close\r\n\r\n"
+                        + body
+                    )
                 scenario = json.loads(self.scenario.read_text())
                 scenario["scenarios"][0]["path"] = f"/raw/{case}"
                 scenario["scenarios"][0]["expect_json"] = {"state": "ready"}
                 self.scenario.write_text(json.dumps(scenario))
-                run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+                run = self.cli(
+                    "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+                )
                 self.assertEqual(run.returncode, 0, run.stderr)
-                expected_run_status = "PASS" if case in ("identical-length", "chunked-space", "chunked-tab") else "FAIL"
+                expected_run_status = (
+                    "PASS"
+                    if case in ("identical-length", "chunked-space", "chunked-tab")
+                    else "FAIL"
+                )
                 self.assertEqual(json.loads(run.stdout)["status"], expected_run_status)
                 run_id = json.loads(run.stdout)["run_id"]
                 listed = self.cli("qa", "list", "--project", self.project)
@@ -294,9 +359,21 @@ class QaSessionTests(unittest.TestCase):
                 self.assertEqual(report.returncode, 0, report.stderr)
                 observation = json.loads(report.stdout)["evidence"]["observations"][0]
                 self.assertEqual(observation["outcome"], expected_run_status)
-                if case in ("invalid-status", "malformed-status", "malformed-line", "missing-status-separator"):
+                if case in (
+                    "invalid-status",
+                    "malformed-status",
+                    "malformed-line",
+                    "missing-status-separator",
+                ):
                     self.assertEqual(observation["error"], "invalid_status")
-                    self.assertEqual(observation["status_code"], 600 if case == "invalid-status" else 99 if case == "malformed-status" else None)
+                    self.assertEqual(
+                        observation["status_code"],
+                        600
+                        if case == "invalid-status"
+                        else 99
+                        if case == "malformed-status"
+                        else None,
+                    )
                 elif case == "protocol-switch":
                     self.assertEqual(observation["error"], "invalid_response_framing")
                     self.assertEqual(observation["status_code"], 101)
@@ -317,7 +394,9 @@ class QaSessionTests(unittest.TestCase):
 
         def answer():
             seen.append(peer.recv(4096))
-            peer.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\n{\"state\":\"ready\"}")
+            peer.sendall(
+                b'HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\n{"state":"ready"}'
+            )
             peer.close()
 
         thread = threading.Thread(target=answer)
@@ -327,7 +406,8 @@ class QaSessionTests(unittest.TestCase):
         try:
             result = devcrew_qa._request(
                 {"host": "::1", "port": 8080, "timeout_seconds": 1},
-                {"path": "/probe", "expected_status": 200, "expect_json": {"state": "ready"}})
+                {"path": "/probe", "expected_status": 200, "expect_json": {"state": "ready"}},
+            )
         finally:
             devcrew_qa.socket.create_connection = original
             client.close()
@@ -341,18 +421,31 @@ class QaSessionTests(unittest.TestCase):
         probes = []
         for i in range(20):
             fields = {f"key{j}.{segments}.{suffix}": "x" * 90 for j in range(20)}
-            probes.append({"id": f"probe-{i}", "path": "/objects/known",
-                           "expected_status": 404 if i == 19 else 200,
-                           "expect_json": fields})
-        scenario = {"schema_version": 1,
-                    "profile": {"base_url": f"http://127.0.0.1:{self.server.server_port}"},
-                    "scenarios": probes}
+            probes.append(
+                {
+                    "id": f"probe-{i}",
+                    "path": "/objects/known",
+                    "expected_status": 404 if i == 19 else 200,
+                    "expect_json": fields,
+                }
+            )
+        scenario = {
+            "schema_version": 1,
+            "profile": {"base_url": f"http://127.0.0.1:{self.server.server_port}"},
+            "scenarios": probes,
+        }
         raw = json.dumps(scenario).encode()
         self.assertLessEqual(len(raw), 1024 * 1024)
 
-
-        normalized = (json.dumps({"schema_version": 1, "scenarios": probes},
-                                 ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+        normalized = (
+            json.dumps(
+                {"schema_version": 1, "scenarios": probes},
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
         self.assertGreater(len(normalized), 1024 * 1024)
         self.scenario.write_bytes(raw)
         result = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
@@ -362,30 +455,52 @@ class QaSessionTests(unittest.TestCase):
 
     def test_expected_json_distinguishes_booleans_from_numbers(self):
         data = json.loads(self.scenario.read_text())
-        data["scenarios"].append({"id": "negative", "path": "/objects/missing",
-                                  "expected_status": 404, "expect_json": {"error": "not found"}})
-        data["scenarios"][1] = {"id": "typed-value", "path": "/objects/number-one",
-                                "expected_status": 200, "expect_json": {"value": True}}
+        data["scenarios"].append(
+            {
+                "id": "negative",
+                "path": "/objects/missing",
+                "expected_status": 404,
+                "expect_json": {"error": "not found"},
+            }
+        )
+        data["scenarios"][1] = {
+            "id": "typed-value",
+            "path": "/objects/number-one",
+            "expected_status": 200,
+            "expect_json": {"value": True},
+        }
         self.scenario.write_text(json.dumps(data))
-        true_vs_one = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+        true_vs_one = self.cli(
+            "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+        )
         self.assertEqual(json.loads(true_vs_one.stdout)["status"], "FAIL")
 
         data["scenarios"][1]["path"] = "/objects/number-zero"
         data["scenarios"][1]["expect_json"]["value"] = False
         self.scenario.write_text(json.dumps(data))
-        false_vs_zero = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+        false_vs_zero = self.cli(
+            "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+        )
         self.assertEqual(json.loads(false_vs_zero.stdout)["status"], "FAIL")
 
-        data["scenarios"][1] = {"id": "typed-value", "path": "/objects/bool-true",
-                                "expected_status": 200, "expect_json": {"value": True}}
+        data["scenarios"][1] = {
+            "id": "typed-value",
+            "path": "/objects/bool-true",
+            "expected_status": 200,
+            "expect_json": {"value": True},
+        }
         self.scenario.write_text(json.dumps(data))
-        matching_true = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+        matching_true = self.cli(
+            "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+        )
         self.assertEqual(json.loads(matching_true.stdout)["status"], "PASS")
 
         data["scenarios"][1]["path"] = "/objects/bool-false"
         data["scenarios"][1]["expect_json"]["value"] = False
         self.scenario.write_text(json.dumps(data))
-        matching_false = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+        matching_false = self.cli(
+            "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+        )
         self.assertEqual(json.loads(matching_false.stdout)["status"], "PASS")
 
     def test_rejects_unsafe_or_unknown_scenarios_without_network(self):
@@ -393,7 +508,9 @@ class QaSessionTests(unittest.TestCase):
         for unsafe_path in ("/objects/known?token=secret", "/../secret", "/objects/../secret"):
             data["scenarios"][0]["path"] = unsafe_path
             self.scenario.write_text(json.dumps(data))
-            rejected = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+            rejected = self.cli(
+                "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+            )
             self.assertNotEqual(rejected.returncode, 0)
             self.assertEqual(Handler.hits, [])
         data["scenarios"][0]["path"] = "/objects/known"
@@ -415,8 +532,18 @@ class QaSessionTests(unittest.TestCase):
         data = json.loads(self.scenario.read_text())
         data["profile"]["timeout_seconds"] = 0.1
         data["scenarios"] = [
-            {"id": "slow", "path": "/slow", "expected_status": 200, "expect_json": {"state": "ready"}},
-            {"id": "negative", "path": "/objects/missing", "expected_status": 404, "expect_json": {"error": "not found"}},
+            {
+                "id": "slow",
+                "path": "/slow",
+                "expected_status": 200,
+                "expect_json": {"state": "ready"},
+            },
+            {
+                "id": "negative",
+                "path": "/objects/missing",
+                "expected_status": 404,
+                "expect_json": {"error": "not found"},
+            },
         ]
         self.scenario.write_text(json.dumps(data))
         timed = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
@@ -435,7 +562,9 @@ class QaSessionTests(unittest.TestCase):
         data["profile"]["timeout_seconds"] = 1
         data["scenarios"][0]["path"] = "/truncated-chunked"
         self.scenario.write_text(json.dumps(data))
-        truncated = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+        truncated = self.cli(
+            "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+        )
         self.assertEqual(json.loads(truncated.stdout)["status"], "FAIL")
 
     def test_close_delimited_eof_is_valid_only_before_deadline(self):
@@ -446,8 +575,9 @@ class QaSessionTests(unittest.TestCase):
         self.scenario.write_text(json.dumps(data))
         timely = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
         timely_result = json.loads(timely.stdout)
-        timely_report = self.cli("qa", "report", "--project", self.project,
-                                 "--run-id", timely_result["run_id"])
+        timely_report = self.cli(
+            "qa", "report", "--project", self.project, "--run-id", timely_result["run_id"]
+        )
         self.assertEqual(timely_result["status"], "PASS", timely_report.stdout)
 
         data["scenarios"][0]["path"] = "/close-delimited-stall"
@@ -461,20 +591,28 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(observation["error"], "incomplete_response")
 
     def test_invalid_json_decoder_inputs_are_recorded_as_fail(self):
-        for path in ("/invalid/large-int", "/invalid/deep", "/invalid/infinity", "/invalid/overflow",
-                     "/invalid/rounded-decimal"):
+        for path in (
+            "/invalid/large-int",
+            "/invalid/deep",
+            "/invalid/infinity",
+            "/invalid/overflow",
+            "/invalid/rounded-decimal",
+        ):
             with self.subTest(path=path):
                 data = json.loads(self.scenario.read_text())
                 data["scenarios"][0]["path"] = path
                 data["scenarios"][0]["expect_json"] = {"value": 1}
                 self.scenario.write_text(json.dumps(data))
-                run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+                run = self.cli(
+                    "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+                )
                 self.assertEqual(run.returncode, 0, run.stderr)
                 payload = json.loads(run.stdout)
                 self.assertEqual(payload["status"], "FAIL")
                 self.assertRegex(payload["run_id"], r"^[0-9a-f]{32}$")
-                report = self.cli("qa", "report", "--project", self.project,
-                                  "--run-id", payload["run_id"])
+                report = self.cli(
+                    "qa", "report", "--project", self.project, "--run-id", payload["run_id"]
+                )
                 observation = json.loads(report.stdout)["evidence"]["observations"][0]
                 if path != "/invalid/deep":
                     self.assertEqual(observation["error"], "invalid_json")
@@ -490,7 +628,9 @@ class QaSessionTests(unittest.TestCase):
         report = self.cli("qa", "report", "--project", self.project, "--run-id", run_id)
         self.assertEqual(report.returncode, 0, report.stderr)
         snapshot = self.project / ".codex/tasks/qa/snapshots" / run_id / "scenario.json"
-        self.assertEqual(json.loads(snapshot.read_text())["scenarios"][0]["expect_json"], {"value": 1})
+        self.assertEqual(
+            json.loads(snapshot.read_text())["scenarios"][0]["expect_json"], {"value": 1}
+        )
 
     def test_large_float_and_integer_match_only_the_same_decimal_value(self):
         scenarios = [
@@ -505,15 +645,23 @@ class QaSessionTests(unittest.TestCase):
                 data["scenarios"][0]["path"] = path
                 data["scenarios"][0]["expect_json"] = {"value": expected}
                 self.scenario.write_text(json.dumps(data))
-                run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
+                run = self.cli(
+                    "qa", "run-api", "--project", self.project, "--scenario", self.scenario
+                )
                 self.assertEqual(run.returncode, 0, run.stderr)
                 self.assertEqual(json.loads(run.stdout)["status"], status)
 
-        for actual, expected, should_match in ((1, 1.0, True), (1.0, 1, True), (True, 1, False), (1, True, False)):
+        for actual, expected, should_match in (
+            (1, 1.0, True),
+            (1.0, 1, True),
+            (True, 1, False),
+            (1, True, False),
+        ):
             with self.subTest(actual=actual, expected=expected):
                 sys.path.insert(0, str(ROOT / "scripts"))
                 try:
                     import devcrew_qa
+
                     self.assertEqual(devcrew_qa._json_value_matches(actual, expected), should_match)
                 finally:
                     sys.path.remove(str(ROOT / "scripts"))
@@ -529,10 +677,26 @@ class QaSessionTests(unittest.TestCase):
         data = json.loads(self.scenario.read_text())
         data["profile"]["base_url"] = "http://127.0.0.1:0"
         self.scenario.write_text(json.dumps(data))
-        commands = [subprocess.Popen([sys.executable, "-B", str(CLI), "qa", "run-api", "--project",
-                                      str(self.project), "--scenario", str(self.scenario)], cwd=ROOT,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    for _ in range(2)]
+        commands = [
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-B",
+                    str(CLI),
+                    "qa",
+                    "run-api",
+                    "--project",
+                    str(self.project),
+                    "--scenario",
+                    str(self.scenario),
+                ],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for _ in range(2)
+        ]
         outputs = [process.communicate(timeout=15) for process in commands]
         self.assertTrue(all(process.returncode != 0 for process in commands), outputs)
         self.assertEqual(Handler.hits, [])
@@ -543,8 +707,11 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(partial.returncode, 0, partial.stderr)
         partial_data = json.loads(partial.stdout)
         self.assertEqual(partial_data["status"], "FAIL")
-        report = json.loads(self.cli("qa", "report", "--project", self.project,
-                                     "--run-id", partial_data["run_id"]).stdout)
+        report = json.loads(
+            self.cli(
+                "qa", "report", "--project", self.project, "--run-id", partial_data["run_id"]
+            ).stdout
+        )
         self.assertEqual(report["result"]["completed_count"], 1)
         self.assertEqual(report["result"]["probe_count"], 2)
 
@@ -554,8 +721,9 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(json.loads(zero.stdout)["status"], "BLOCKED")
 
     def test_missing_or_tampered_evidence_and_foreign_project_are_rejected(self):
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         evidence = self.project / ".codex/checks/qa/runs" / run["run_id"] / "evidence.json"
         original = evidence.read_bytes()
         evidence.write_bytes(original + b" ")
@@ -569,7 +737,9 @@ class QaSessionTests(unittest.TestCase):
         foreign = pathlib.Path(self.temp.name) / "foreign"
         foreign.mkdir()
         (foreign / ".codex").mkdir()
-        (foreign / ".codex/devcrew.json").write_bytes((self.project / ".codex/devcrew.json").read_bytes())
+        (foreign / ".codex/devcrew.json").write_bytes(
+            (self.project / ".codex/devcrew.json").read_bytes()
+        )
         source_run = self.project / ".codex/checks/qa/runs" / run["run_id"]
         target_run = foreign / ".codex/checks/qa/runs" / run["run_id"]
         target_run.parent.mkdir(parents=True)
@@ -589,16 +759,23 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(Handler.hits, [])
 
     def test_missing_or_modified_markdown_report_is_rejected_by_list_and_report(self):
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         report = self.project / ".codex/checks/qa/runs" / run["run_id"] / "report.md"
         report.unlink()
         self.assertNotEqual(self.cli("qa", "list", "--project", self.project).returncode, 0)
-        self.assertNotEqual(self.cli("qa", "report", "--project", self.project, "--run-id", run["run_id"]).returncode, 0)
+        self.assertNotEqual(
+            self.cli(
+                "qa", "report", "--project", self.project, "--run-id", run["run_id"]
+            ).returncode,
+            0,
+        )
 
     def test_report_rejects_index_status_that_disagrees_with_result(self):
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         index = self.project / ".codex/checks/qa/index.json"
         data = json.loads(index.read_text())
         data["runs"][0]["status"] = "FAIL"
@@ -609,31 +786,67 @@ class QaSessionTests(unittest.TestCase):
         self.assertNotEqual(reported.returncode, 0)
 
     def test_full_index_catalog_is_preflighted_before_network(self):
-        runs = [{"run_id": f"{number:032x}", "status": "PASS",
-                 "created_at": "2026-01-01T00:00:00Z", "result_sha256": "0" * 64}
-                for number in range(37616)]
+        runs = [
+            {
+                "run_id": f"{number:032x}",
+                "status": "PASS",
+                "created_at": "2026-01-01T00:00:00Z",
+                "result_sha256": "0" * 64,
+            }
+            for number in range(37616)
+        ]
         catalog = {"schema_version": 1, "runs": runs}
-        current = (json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
-        proposed = {**catalog, "runs": runs + [{"run_id": "f" * 32, "status": "BLOCKED",
-                                                  "created_at": "2000-01-01T00:00:00Z",
-                                                  "result_sha256": "0" * 64}]}
-        next_catalog = (json.dumps(proposed, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+        current = (
+            json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        ).encode()
+        proposed = {
+            **catalog,
+            "runs": runs
+            + [
+                {
+                    "run_id": "f" * 32,
+                    "status": "BLOCKED",
+                    "created_at": "2000-01-01T00:00:00Z",
+                    "result_sha256": "0" * 64,
+                }
+            ],
+        }
+        next_catalog = (
+            json.dumps(proposed, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        ).encode()
         self.assertLessEqual(len(current), 8 * 1024 * 1024)
         self.assertGreater(len(next_catalog), 8 * 1024 * 1024)
         index = self.project / ".codex/checks/qa/index.json"
         index.parent.mkdir(parents=True)
         index.write_bytes(current)
-        commands = [subprocess.Popen([sys.executable, "-B", str(CLI), "qa", "run-api", "--project",
-                                      str(self.project), "--scenario", str(self.scenario)], cwd=ROOT,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    for _ in range(2)]
+        commands = [
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-B",
+                    str(CLI),
+                    "qa",
+                    "run-api",
+                    "--project",
+                    str(self.project),
+                    "--scenario",
+                    str(self.scenario),
+                ],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for _ in range(2)
+        ]
         outputs = [process.communicate(timeout=15) for process in commands]
         self.assertTrue(all(process.returncode != 0 for process in commands), outputs)
         self.assertEqual(Handler.hits, [])
 
     def test_valid_near_limit_scenario_exceeding_input_size_is_rejected_before_network(self):
-        raw = json.dumps(json.loads(self.scenario.read_text()), ensure_ascii=False,
-                         separators=(",", ":")).encode()
+        raw = json.dumps(
+            json.loads(self.scenario.read_text()), ensure_ascii=False, separators=(",", ":")
+        ).encode()
         self.assertLess(len(raw), 1024 * 1024)
         self.scenario.write_bytes(raw + b" " * (1024 * 1024 + 1 - len(raw)))
         rejected = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
@@ -642,10 +855,26 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(Handler.hits, [])
 
     def test_concurrent_runs_preserve_every_index_entry(self):
-        commands = [subprocess.Popen([sys.executable, "-B", str(CLI), "qa", "run-api", "--project",
-                                      str(self.project), "--scenario", str(self.scenario)], cwd=ROOT,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    for _ in range(4)]
+        commands = [
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-B",
+                    str(CLI),
+                    "qa",
+                    "run-api",
+                    "--project",
+                    str(self.project),
+                    "--scenario",
+                    str(self.scenario),
+                ],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for _ in range(4)
+        ]
         outputs = [process.communicate(timeout=15) for process in commands]
         self.assertTrue(all(process.returncode == 0 for process in commands), outputs)
         listed = self.cli("qa", "list", "--project", self.project)
@@ -653,8 +882,9 @@ class QaSessionTests(unittest.TestCase):
         self.assertEqual(len(json.loads(listed.stdout)["runs"]), 4)
 
     def test_saved_artifacts_are_within_reader_limits(self):
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         root = self.project / ".codex/checks/qa"
         for path in root.rglob("*.json"):
             self.assertLessEqual(path.stat().st_size, 8 * 1024 * 1024)
@@ -667,8 +897,9 @@ class QaSessionTests(unittest.TestCase):
         self.assertNotEqual(linked.returncode, 0)
         self.assertEqual(Handler.hits, [])
 
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         run_dir = self.project / ".codex/checks/qa/runs" / run["run_id"]
         evidence = run_dir / "evidence.json"
         external = pathlib.Path(self.temp.name) / "evidence-outside.json"
@@ -698,7 +929,10 @@ class QaSessionTests(unittest.TestCase):
         sentinel.write_bytes(b"preserve-check-receipt\n")
         # A real Git index is included in the preservation contract.
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
-        subprocess.run(["git", "-C", str(self.project), "config", "user.email", "qa@example.invalid"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.email", "qa@example.invalid"],
+            check=True,
+        )
         subprocess.run(["git", "-C", str(self.project), "config", "user.name", "QA"], check=True)
         tracked = self.project / "tracked.txt"
         tracked.write_text("checkout\n")
@@ -709,8 +943,12 @@ class QaSessionTests(unittest.TestCase):
         run = self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario)
         self.assertEqual(run.returncode, 0, run.stderr)
         run_id = json.loads(run.stdout)["run_id"]
-        self.assertTrue((self.project / ".codex/work-items/qa/snapshots" / run_id / "scenario.json").is_file())
-        self.assertTrue((self.project / ".codex/receipts/qa/runs" / run_id / "result.json").is_file())
+        self.assertTrue(
+            (self.project / ".codex/work-items/qa/snapshots" / run_id / "scenario.json").is_file()
+        )
+        self.assertTrue(
+            (self.project / ".codex/receipts/qa/runs" / run_id / "result.json").is_file()
+        )
         self.assertEqual(sentinel.read_bytes(), b"preserve-check-receipt\n")
         self.assertEqual((self.project / ".codex/devcrew.json").read_bytes(), config_bytes)
         self.assertEqual(hashlib.sha256(index_path.read_bytes()).hexdigest(), index_digest)
@@ -720,21 +958,26 @@ class QaSessionTests(unittest.TestCase):
         listed = self.cli("qa", "list", "--project", self.project)
         self.assertEqual(listed.returncode, 0, listed.stderr)
         self.assertFalse((self.project / ".codex/checks/qa").exists())
-        run = json.loads(self.cli("qa", "run-api", "--project", self.project,
-                                  "--scenario", self.scenario).stdout)
+        run = json.loads(
+            self.cli("qa", "run-api", "--project", self.project, "--scenario", self.scenario).stdout
+        )
         root = self.project / ".codex/checks/qa/runs" / run["run_id"]
         report = self.cli("qa", "report", "--project", self.project, "--run-id", run["run_id"])
         self.assertEqual(report.returncode, 0, report.stderr)
         parsed_report = json.loads(report.stdout)
         self.assertEqual(parsed_report["markdown"], (root / "report.md").read_text())
         self.assertEqual(Handler.hits, ["/objects/known", "/objects/missing"])
-        output_files = list(root.iterdir()) + list((self.project / ".codex/tasks/qa/snapshots" / run["run_id"]).iterdir())
+        output_files = list(root.iterdir()) + list(
+            (self.project / ".codex/tasks/qa/snapshots" / run["run_id"]).iterdir()
+        )
         for path in output_files:
             self.assertNotIn(Handler.secret, path.read_text())
             self.assertNotIn('"token"', path.read_text())
         self.assertNotIn(Handler.secret, report.stdout)
         # The argv contains only CLI arguments and paths; raw HTTP data is never added.
-        self.assertNotIn(Handler.secret, " ".join(["qa", "report", str(self.project), run["run_id"]]))
+        self.assertNotIn(
+            Handler.secret, " ".join(["qa", "report", str(self.project), run["run_id"]])
+        )
 
 
 class HttpDecoderTests(unittest.TestCase):
@@ -758,8 +1001,12 @@ class HttpDecoderTests(unittest.TestCase):
         try:
             result = devcrew_qa._request(
                 {"host": "127.0.0.1", "port": 80, "timeout_seconds": 1},
-                {"path": "/probe", "expected_status": expected_status,
-                 "expect_json": {"state": "ready"}})
+                {
+                    "path": "/probe",
+                    "expected_status": expected_status,
+                    "expect_json": {"state": "ready"},
+                },
+            )
         finally:
             devcrew_qa.socket.create_connection = original
             client.close()
@@ -770,40 +1017,88 @@ class HttpDecoderTests(unittest.TestCase):
         valid_body = b'{"state":"ready"}'
         cases = (
             (b"HTTP/1.0 200 \r\nContent-Length: 17\r\n\r\n" + valid_body, 200, None),
-            (b"HTTP/1.1 200 OK\r\nContent-Length: " + b"0" * 80 + b"17\r\n\r\n" + valid_body,
-             200, None),
-            (b"HTTP/1.1  200 OK\r\nContent-Length: 17\r\n\r\n" + valid_body, None, "invalid_status"),
+            (
+                b"HTTP/1.1 200 OK\r\nContent-Length: " + b"0" * 80 + b"17\r\n\r\n" + valid_body,
+                200,
+                None,
+            ),
+            (
+                b"HTTP/1.1  200 OK\r\nContent-Length: 17\r\n\r\n" + valid_body,
+                None,
+                "invalid_status",
+            ),
             (b"HTTP/1.1 200 OK\r\n folded: x\r\n\r\n", 200, "invalid_response_framing"),
-            (b"HTTP/1.1 200 OK\r\nContent-Length : 17\r\n\r\n" + valid_body, 200,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 200 OK\r\nContent-Length: 17, 17\r\n\r\n" + valid_body, 200,
-             "invalid_response_framing"),
-            (b"HTTP/1.0 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n", 200,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 \r\nContent-Length: 17\r\n\r\n" + valid_body,
-             200, None),
+            (
+                b"HTTP/1.1 200 OK\r\nContent-Length : 17\r\n\r\n" + valid_body,
+                200,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.1 200 OK\r\nContent-Length: 17, 17\r\n\r\n" + valid_body,
+                200,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.0 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
+                200,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 \r\nContent-Length: 17\r\n\r\n"
+                + valid_body,
+                200,
+                None,
+            ),
             (b"HTTP/1.1 101 Switching Protocols\r\n\r\n", 101, "invalid_response_framing"),
-            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-             b"11;foo=bar\r\n" + valid_body + b"\r\n0\r\nX-Note: ok\r\n\r\n", 200, None),
-            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-             b"00000011 ; foo = \"escaped\\\"quote\"\r\n" + valid_body
-             + b"\r\n0\r\n\r\n", 200, None),
-            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-             b"11;foo=\"bad\\\r\n" + valid_body + b"\r\n0\r\n\r\n", 200,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-             b"11\r\n" + valid_body + b"\r\n0\r\nContent-Length: 17\r\n\r\n", 200,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n", 204,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n{" , 200,
-             "incomplete_response"),
-            (b"HTTP/1.1 200 OK\r\nContent-Length: 999999999999999999999\r\n\r\n", 200,
-             "response_too_large"),
-            (b"HTTP/1.1 200 \r\nX-Long: " + b"x" * 65530 + b"\r\n\r\n", None,
-             "invalid_response_framing"),
-            (b"HTTP/1.1 200 \r\nX-One: " + b"x" * 32760 + b"\r\nX-Two: "
-             + b"x" * 32760 + b"\r\n\r\n", None, "invalid_response_framing"),
+            (
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                b"11;foo=bar\r\n" + valid_body + b"\r\n0\r\nX-Note: ok\r\n\r\n",
+                200,
+                None,
+            ),
+            (
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                b'00000011 ; foo = "escaped\\"quote"\r\n' + valid_body + b"\r\n0\r\n\r\n",
+                200,
+                None,
+            ),
+            (
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                b'11;foo="bad\\\r\n' + valid_body + b"\r\n0\r\n\r\n",
+                200,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                b"11\r\n" + valid_body + b"\r\n0\r\nContent-Length: 17\r\n\r\n",
+                200,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n",
+                204,
+                "invalid_response_framing",
+            ),
+            (b"HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n{", 200, "incomplete_response"),
+            (
+                b"HTTP/1.1 200 OK\r\nContent-Length: 999999999999999999999\r\n\r\n",
+                200,
+                "response_too_large",
+            ),
+            (
+                b"HTTP/1.1 200 \r\nX-Long: " + b"x" * 65530 + b"\r\n\r\n",
+                None,
+                "invalid_response_framing",
+            ),
+            (
+                b"HTTP/1.1 200 \r\nX-One: "
+                + b"x" * 32760
+                + b"\r\nX-Two: "
+                + b"x" * 32760
+                + b"\r\n\r\n",
+                None,
+                "invalid_response_framing",
+            ),
         )
         for response, status, error in cases:
             with self.subTest(response=response[:70]):
@@ -815,18 +1110,27 @@ class HttpDecoderTests(unittest.TestCase):
 
     def test_chunk_extension_budget_excludes_size_lines_and_crlf(self):
         body = b'{"state":"ready"}' + b" " * (23028 - 17)
-        response = (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-                    + b"".join(b"1\r\n" + bytes((byte,)) + b"\r\n" for byte in body)
-                    + b"0\r\n\r\n")
+        response = (
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            + b"".join(b"1\r\n" + bytes((byte,)) + b"\r\n" for byte in body)
+            + b"0\r\n\r\n"
+        )
         actual_status, payload, error = self.request(response)
         self.assertEqual((actual_status, payload, error), (200, {"state": "ready"}, None))
 
     def test_chunk_extension_budget_still_rejects_large_extensions(self):
         body = b'{"state":"ready"}'
-        response = (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-                    + b"11;" + b"a" * 65537 + b"\r\n" + body + b"\r\n0\r\n\r\n")
+        response = (
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            + b"11;"
+            + b"a" * 65537
+            + b"\r\n"
+            + body
+            + b"\r\n0\r\n\r\n"
+        )
         actual_status, _payload, error = self.request(response)
         self.assertEqual((actual_status, error), (200, "invalid_response_framing"))
+
 
 if __name__ == "__main__":
     unittest.main()

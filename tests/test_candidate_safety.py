@@ -1,4 +1,5 @@
 """Candidates stop for manual reconciliation after uncertain side effects."""
+
 import errno
 import copy
 import hashlib
@@ -14,6 +15,7 @@ import shutil
 from unittest import mock
 
 import test_phase_candidate_commit as candidate_tests
+
 ROOT = candidate_tests.ROOT
 from devcrew_test_helpers import ExactPathSeed, copied_attributes, restore_attributes
 import devcrew_phase
@@ -26,7 +28,16 @@ class CandidateSafetyTests(unittest.TestCase):
         super().setUpClass()
         cls._seed_builder = candidate_tests.CandidateCommitTests()
         cls._seed_builder.setUp()
-        names = ("host", "base", "task", "verifier", "manifest", "receipt", "manifest_path", "bindings")
+        names = (
+            "host",
+            "base",
+            "task",
+            "verifier",
+            "manifest",
+            "receipt",
+            "manifest_path",
+            "bindings",
+        )
         cls._ready_attributes = copied_attributes(cls._seed_builder, names)
         cls._ready_seed = ExactPathSeed(cls._seed_builder.temp.name)
         cls._ready_seed_active = False
@@ -53,7 +64,16 @@ class CandidateSafetyTests(unittest.TestCase):
         else:
             self.f.setUp()
             self._active_seed = ExactPathSeed(self.f.temp.name)
-            names = ("host", "base", "task", "verifier", "manifest", "receipt", "manifest_path", "bindings")
+            names = (
+                "host",
+                "base",
+                "task",
+                "verifier",
+                "manifest",
+                "receipt",
+                "manifest_path",
+                "bindings",
+            )
             self._active_attributes = copied_attributes(self.f, names)
             self._seed_temp = self.f.temp
             self.addCleanup(self.f.doCleanups)
@@ -74,19 +94,24 @@ class CandidateSafetyTests(unittest.TestCase):
         restore_attributes(self.f, self._active_attributes)
 
     def snapshot(self):
-        return (self.f.manifest_path.read_bytes(), self.state_path.read_bytes(),
-                self.f.git(self.f.task, "rev-parse", "HEAD"),
-                self.f.git(self.f.task, "status", "--porcelain"),
-                sorted(p.name for p in (self.f.host / ".codex/checks").iterdir()))
+        return (
+            self.f.manifest_path.read_bytes(),
+            self.state_path.read_bytes(),
+            self.f.git(self.f.task, "rev-parse", "HEAD"),
+            self.f.git(self.f.task, "status", "--porcelain"),
+            sorted(p.name for p in (self.f.host / ".codex/checks").iterdir()),
+        )
 
     def capture_ready_fixture(self):
         backup = tempfile.TemporaryDirectory()
         source = pathlib.Path(self.f.temp.name)
         snapshot = pathlib.Path(backup.name) / "tree"
         shutil.copytree(source, snapshot, symlinks=True)
-        attrs = {name: copy.deepcopy(getattr(self.f, name))
-                 for name in ("manifest", "receipt", "base", "host", "task", "manifest_path", "bindings")
-                 if hasattr(self.f, name)}
+        attrs = {
+            name: copy.deepcopy(getattr(self.f, name))
+            for name in ("manifest", "receipt", "base", "host", "task", "manifest_path", "bindings")
+            if hasattr(self.f, name)
+        }
         return backup, source, snapshot, attrs
 
     def restore_ready_fixture(self, source, snapshot, attrs):
@@ -171,7 +196,9 @@ class CandidateSafetyTests(unittest.TestCase):
         self.assertEqual(self.f.git(self.f.task, "rev-parse", "HEAD"), self.f.base)
 
     def test_overlapping_safety_fixtures_do_not_restore_an_active_seed(self):
-        other = CandidateSafetyTests("test_partial_candidate_never_replays_or_creates_another_commit")
+        other = CandidateSafetyTests(
+            "test_partial_candidate_never_replays_or_creates_another_commit"
+        )
         owned = self.f.task / "owned.txt"
         owned.write_text("active fixture remains intact\n", encoding="utf-8")
         original_root = self._active_seed.root
@@ -183,7 +210,9 @@ class CandidateSafetyTests(unittest.TestCase):
             other.doCleanups()
 
     def test_changed_environment_uses_a_fresh_ready_fixture(self):
-        fallback = CandidateSafetyTests("test_partial_candidate_never_replays_or_creates_another_commit")
+        fallback = CandidateSafetyTests(
+            "test_partial_candidate_never_replays_or_creates_another_commit"
+        )
         with mock.patch.dict(os.environ, {"DEVCREW_SEED_ENVIRONMENT_PROBE": "changed"}):
             fallback.setUp()
             try:
@@ -194,14 +223,34 @@ class CandidateSafetyTests(unittest.TestCase):
 
     def run_candidate(self):
         f = self.f
+
         def check(argv, _verification):
-            result = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/devcrew.py"),
-                "run-check", "--project", str(f.host), "--execution-root", str(f.task),
-                "--task-id", "T01", "--name", "safety", "--", *argv], capture_output=True, text=True)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(ROOT / "scripts/devcrew.py"),
+                    "run-check",
+                    "--project",
+                    str(f.host),
+                    "--execution-root",
+                    str(f.task),
+                    "--task-id",
+                    "T01",
+                    "--name",
+                    "safety",
+                    "--",
+                    *argv,
+                ],
+                capture_output=True,
+                text=True,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout.splitlines()[0]
-        return devcrew_phase.candidate_commit(f.host, f.task, f.manifest, f.receipt,
-                                              f.bindings, f.verifier, check)
+
+        return devcrew_phase.candidate_commit(
+            f.host, f.task, f.manifest, f.receipt, f.bindings, f.verifier, check
+        )
 
     def assert_stopped(self):
         f = self.f
@@ -213,9 +262,12 @@ class CandidateSafetyTests(unittest.TestCase):
             lambda: devcrew_worktree.resolve(f.host, "T01", worktree_request="changed request"),
             lambda: devcrew_worktree.create(f.host, "T01"),
             lambda: devcrew_worktree._atomic_json(self.state_path, receipt, expected=receipt),
-            lambda: devcrew_worktree.advance_expected_head(f.host, "T01", f.base, "f" * 40,
-                                                           before_advance=lambda: self.fail("must stop")),
-            lambda: devcrew_worktree.validate_dispatch(f.host, "T01", str(f.task), f.base, f.receipt),
+            lambda: devcrew_worktree.advance_expected_head(
+                f.host, "T01", f.base, "f" * 40, before_advance=lambda: self.fail("must stop")
+            ),
+            lambda: devcrew_worktree.validate_dispatch(
+                f.host, "T01", str(f.task), f.base, f.receipt
+            ),
             lambda: devcrew_phase._atomic_json(f.manifest_path, f.manifest),
             lambda: devcrew_phase.save_manifest(f.manifest_path, saved, f.receipt),
             lambda: devcrew_phase.executor_input(saved, f.task),
@@ -226,19 +278,55 @@ class CandidateSafetyTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "CANDIDATE_RECONCILIATION_REQUIRED"):
                     operation()
                 self.assertEqual(self.snapshot(), before)
-        for operation in ("resume", "candidate-commit", "review-start", "local-fix-start", "replan-complete"):
-            result = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/devcrew.py"),
-                "phase", operation, "--project", str(f.host), "--task-id", "T01"],
-                capture_output=True, text=True)
+        for operation in (
+            "resume",
+            "candidate-commit",
+            "review-start",
+            "local-fix-start",
+            "replan-complete",
+        ):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(ROOT / "scripts/devcrew.py"),
+                    "phase",
+                    operation,
+                    "--project",
+                    str(f.host),
+                    "--task-id",
+                    "T01",
+                ],
+                capture_output=True,
+                text=True,
+            )
             self.assertNotEqual(result.returncode, 0, result.stdout)
             self.assertIn("CANDIDATE_RECONCILIATION_REQUIRED", result.stderr)
             self.assertIn("manual reconciliation", result.stderr)
             self.assertEqual(self.snapshot(), before)
         touched = f.task / "check-must-not-run"
-        result = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/devcrew.py"),
-            "run-check", "--project", str(f.host), "--execution-root", str(f.task), "--task-id", "T01",
-            "--name", "must-not-run", "--", sys.executable, "-c",
-            "from pathlib import Path; Path('check-must-not-run').touch()"], capture_output=True, text=True)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                str(ROOT / "scripts/devcrew.py"),
+                "run-check",
+                "--project",
+                str(f.host),
+                "--execution-root",
+                str(f.task),
+                "--task-id",
+                "T01",
+                "--name",
+                "must-not-run",
+                "--",
+                sys.executable,
+                "-c",
+                "from pathlib import Path; Path('check-must-not-run').touch()",
+            ],
+            capture_output=True,
+            text=True,
+        )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CANDIDATE_RECONCILIATION_REQUIRED", result.stderr)
         self.assertFalse(touched.exists())
@@ -263,7 +351,9 @@ class CandidateSafetyTests(unittest.TestCase):
                         # repeated candidate command still cannot make a commit.
                         self.assertNotIn("candidate_transition", saved)
                         self.f.manifest = saved
-                        self.f.receipt = devcrew_worktree.resolve(self.f.host, "T01", read_only=True)
+                        self.f.receipt = devcrew_worktree.resolve(
+                            self.f.host, "T01", read_only=True
+                        )
                         before = self.snapshot()
                         with self.assertRaisesRegex(ValueError, "PHASE_NOT_READY_FOR_CLOSE"):
                             self.run_candidate()
@@ -271,8 +361,10 @@ class CandidateSafetyTests(unittest.TestCase):
                         continue
                     self.assertIn("candidate_transition", saved)
                     if boundary in ("receipt", "manifest"):
-                        self.assertEqual(saved["candidate_transition"]["sha"],
-                                         self.f.git(self.f.task, "rev-parse", "HEAD"))
+                        self.assertEqual(
+                            saved["candidate_transition"]["sha"],
+                            self.f.git(self.f.task, "rev-parse", "HEAD"),
+                        )
                     self.assert_stopped()
                     if boundary == "intent":
                         fresh = devcrew_worktree.resolve(self.f.host, "T01", read_only=True)
@@ -281,12 +373,14 @@ class CandidateSafetyTests(unittest.TestCase):
     def test_commit_tree_uncertain_result_keeps_intent_without_guessing_sha(self):
         original = devcrew_phase.subprocess.run
         created = []
+
         def run(argv, *args, **kwargs):
             result = original(argv, *args, **kwargs)
             if isinstance(argv, list) and "commit-tree" in argv:
                 created.append(result.stdout.strip())
                 raise OSError(errno.EIO, "commit-tree result lost")
             return result
+
         with mock.patch.object(devcrew_phase.subprocess, "run", side_effect=run):
             with self.assertRaisesRegex(ValueError, "CANDIDATE_RECONCILIATION_REQUIRED"):
                 self.run_candidate()
@@ -299,15 +393,41 @@ class CandidateSafetyTests(unittest.TestCase):
     def test_update_ref_cas_rejects_foreign_head_and_preserves_pending(self):
         original = devcrew_phase.subprocess.run
         foreign = []
+
         def run(argv, *args, **kwargs):
             if isinstance(argv, list) and "update-ref" in argv:
-                result = original(["git", "-C", str(self.f.task), "commit-tree",
-                    self.f.git(self.f.task, "rev-parse", "HEAD^{tree}"), "-p", self.f.base, "-m", "foreign"],
-                    capture_output=True, text=True, check=True)
+                result = original(
+                    [
+                        "git",
+                        "-C",
+                        str(self.f.task),
+                        "commit-tree",
+                        self.f.git(self.f.task, "rev-parse", "HEAD^{tree}"),
+                        "-p",
+                        self.f.base,
+                        "-m",
+                        "foreign",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
                 foreign.append(result.stdout.strip())
-                original(["git", "-C", str(self.f.task), "update-ref", argv[-3], foreign[-1], self.f.base],
-                         capture_output=True, check=True)
+                original(
+                    [
+                        "git",
+                        "-C",
+                        str(self.f.task),
+                        "update-ref",
+                        argv[-3],
+                        foreign[-1],
+                        self.f.base,
+                    ],
+                    capture_output=True,
+                    check=True,
+                )
             return original(argv, *args, **kwargs)
+
         with mock.patch.object(devcrew_phase.subprocess, "run", side_effect=run):
             with self.assertRaisesRegex(ValueError, "PHASE_COMMIT_CAS_FAILED"):
                 self.run_candidate()
@@ -323,21 +443,38 @@ class CandidateSafetyTests(unittest.TestCase):
                     original_replace = devcrew_phase._replace_json
                     original_write = devcrew_worktree._write_json
                     original_fsync = devcrew_phase.os.fsync
+
                     def replace(path, value):
                         marker = value.get("candidate_transition")
-                        active[:] = ["sha" if marker and "sha" in marker else "intent" if marker else "manifest"]
+                        active[:] = [
+                            "sha"
+                            if marker and "sha" in marker
+                            else "intent"
+                            if marker
+                            else "manifest"
+                        ]
                         return original_replace(path, value)
+
                     def write(path, value):
                         active[:] = ["receipt"]
                         return original_write(path, value)
+
                     def sync(fd):
-                        if active == [stage] and stat.S_ISDIR(devcrew_phase.os.fstat(fd).st_mode) == directory:
+                        if (
+                            active == [stage]
+                            and stat.S_ISDIR(devcrew_phase.os.fstat(fd).st_mode) == directory
+                        ):
                             raise OSError(errno.EIO, "injected fsync failure")
                         return original_fsync(fd)
-                    with mock.patch.object(devcrew_phase, "_replace_json", side_effect=replace), \
-                         mock.patch.object(devcrew_worktree, "_write_json", side_effect=write), \
-                         mock.patch.object(devcrew_phase.os, "fsync", side_effect=sync):
-                        with self.assertRaisesRegex(ValueError, "CANDIDATE_RECONCILIATION_REQUIRED"):
+
+                    with (
+                        mock.patch.object(devcrew_phase, "_replace_json", side_effect=replace),
+                        mock.patch.object(devcrew_worktree, "_write_json", side_effect=write),
+                        mock.patch.object(devcrew_phase.os, "fsync", side_effect=sync),
+                    ):
+                        with self.assertRaisesRegex(
+                            ValueError, "CANDIDATE_RECONCILIATION_REQUIRED"
+                        ):
                             self.run_candidate()
                     saved = json.loads(self.f.manifest_path.read_text())
                     if "candidate_transition" in saved:
@@ -374,17 +511,39 @@ class CandidateSafetyTests(unittest.TestCase):
                 else:
                     self.f.git(self.f.task, "commit", "--allow-empty", "-qm", "foreign")
                 before = self.snapshot()
-                result = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/devcrew.py"),
-                    "run-check", "--project", str(self.f.host), "--execution-root", str(self.f.task),
-                    "--task-id", "T01", "--name", "inconsistent", "--", sys.executable, "-c", "raise SystemExit(0)"],
-                    capture_output=True, text=True)
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-B",
+                        str(ROOT / "scripts/devcrew.py"),
+                        "run-check",
+                        "--project",
+                        str(self.f.host),
+                        "--execution-root",
+                        str(self.f.task),
+                        "--task-id",
+                        "T01",
+                        "--name",
+                        "inconsistent",
+                        "--",
+                        sys.executable,
+                        "-c",
+                        "raise SystemExit(0)",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.snapshot(), before)
                 with self.assertRaises(ValueError):
-                    devcrew_worktree.resolve(self.f.host, "T01", worktree_request="must not persist")
+                    devcrew_worktree.resolve(
+                        self.f.host, "T01", worktree_request="must not persist"
+                    )
                 self.assertEqual(self.snapshot(), before)
                 with self.assertRaises(ValueError):
-                    devcrew_phase._atomic_json(self.f.manifest_path, json.loads(self.f.manifest_path.read_text()))
+                    devcrew_phase._atomic_json(
+                        self.f.manifest_path, json.loads(self.f.manifest_path.read_text())
+                    )
                 self.assertEqual(self.snapshot(), before)
                 current = json.loads(self.state_path.read_text())
                 with self.assertRaises(ValueError):
@@ -395,6 +554,7 @@ class CandidateSafetyTests(unittest.TestCase):
 
     def test_evidence_changed_by_update_ref_hook_stops_before_receipt_save(self):
         original = devcrew_phase.subprocess.run
+
         def run(argv, *args, **kwargs):
             result = original(argv, *args, **kwargs)
             if isinstance(argv, list) and "update-ref" in argv:
@@ -406,6 +566,7 @@ class CandidateSafetyTests(unittest.TestCase):
                 data["log_sha256"] = hashlib.sha256(log.read_bytes()).hexdigest()
                 record.write_text(json.dumps(data))
             return result
+
         with mock.patch.object(devcrew_phase.subprocess, "run", side_effect=run):
             with self.assertRaisesRegex(ValueError, "CANDIDATE_RECONCILIATION_REQUIRED"):
                 self.run_candidate()

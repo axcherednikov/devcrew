@@ -19,8 +19,14 @@ def _git(project, *args, check=True, read_only=False):
     if read_only:
         environment = dict(os.environ)
         environment["GIT_OPTIONAL_LOCKS"] = "0"
-    result = subprocess.run(["git", "-C", str(project), *args], capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
-                            env=environment)
+    result = subprocess.run(
+        ["git", "-C", str(project), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
+        env=environment,
+    )
     if check and result.returncode:
         raise ValueError((result.stderr or result.stdout).strip() or "git command failed")
     return result
@@ -35,11 +41,19 @@ def _repository_details(project):
     # reinterpret relative paths between commands.
     if any(name in os.environ for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")):
         root = pathlib.Path(_git(project, "rev-parse", "--show-toplevel").stdout.strip()).resolve()
-        common = pathlib.Path(_git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()).resolve()
+        common = pathlib.Path(
+            _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+        ).resolve()
         git_dir = pathlib.Path(_git(root, "rev-parse", "--absolute-git-dir").stdout.strip())
     else:
-        result = _git(project, "rev-parse", "--path-format=absolute", "--show-toplevel",
-                      "--git-common-dir", "--absolute-git-dir")
+        result = _git(
+            project,
+            "rev-parse",
+            "--path-format=absolute",
+            "--show-toplevel",
+            "--git-common-dir",
+            "--absolute-git-dir",
+        )
         fields = result.stdout.splitlines()
         if result.returncode == 0 and len(fields) == 3 and all(fields):
             root, common, git_dir = (pathlib.Path(value) for value in fields)
@@ -47,8 +61,12 @@ def _repository_details(project):
         else:
             # Newlines in a path make rev-parse's line-oriented output
             # ambiguous; preserve the old queries and their .strip() rules.
-            root = pathlib.Path(_git(project, "rev-parse", "--show-toplevel").stdout.strip()).resolve()
-            common = pathlib.Path(_git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()).resolve()
+            root = pathlib.Path(
+                _git(project, "rev-parse", "--show-toplevel").stdout.strip()
+            ).resolve()
+            common = pathlib.Path(
+                _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+            ).resolve()
             git_dir = pathlib.Path(_git(root, "rev-parse", "--absolute-git-dir").stdout.strip())
     identity = hashlib.sha256((str(root) + "\0" + str(common)).encode()).hexdigest()
     return root, common, identity, identity[:16], git_dir
@@ -59,23 +77,39 @@ def _linked_repository_details(project, *, read_only=False):
         return _git(project, *args, check=check, read_only=read_only)
 
     if not any(name in os.environ for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")):
-        result = git("rev-parse", "--path-format=absolute", "--show-toplevel",
-                     "--git-common-dir", "HEAD", check=False)
+        result = git(
+            "rev-parse",
+            "--path-format=absolute",
+            "--show-toplevel",
+            "--git-common-dir",
+            "HEAD",
+            check=False,
+        )
         fields = result.stdout.splitlines()
         if result.returncode == 0 and len(fields) == 3 and all(fields):
             root, common, head = fields
-            return pathlib.Path(root).resolve(), pathlib.Path(common).resolve(), head.strip().lower()
+            return (
+                pathlib.Path(root).resolve(),
+                pathlib.Path(common).resolve(),
+                head.strip().lower(),
+            )
 
     # Preserve the old queries and their error/whitespace behavior when paths
     # are ambiguous or Git overrides may affect relative path interpretation.
     root = pathlib.Path(git("rev-parse", "--show-toplevel").stdout.strip()).resolve()
-    common = pathlib.Path(git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()).resolve()
+    common = pathlib.Path(
+        git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+    ).resolve()
     head = git("rev-parse", "HEAD").stdout.strip().lower()
     return root, common, head
 
 
 def location(project, task_id, *, _repository_metadata=None):
-    if not isinstance(task_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", task_id) or fs.unsafe_parts([task_id]):
+    if (
+        not isinstance(task_id, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", task_id)
+        or fs.unsafe_parts([task_id])
+    ):
         raise ValueError("TASK_ID must be a safe filesystem identifier")
     root, common, identity, key, git_dir = _repository_metadata or _repository_details(project)
     path_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
@@ -90,13 +124,25 @@ def location(project, task_id, *, _repository_metadata=None):
             try:
                 record = json.loads(current_state.read_text(encoding="utf-8"))
                 saved_branch = record.get("branch") if isinstance(record, dict) else None
-                if (isinstance(saved_branch, str) and saved_branch and
-                        not _git(root, "check-ref-format", "--branch", saved_branch, check=False).returncode):
+                if (
+                    isinstance(saved_branch, str)
+                    and saved_branch
+                    and not _git(
+                        root, "check-ref-format", "--branch", saved_branch, check=False
+                    ).returncode
+                ):
                     branch = saved_branch
             except (OSError, ValueError):
                 pass  # resolve validates malformed receipts without changing Git.
         return root, common, identity, root, branch, current_state
-    return root, common, identity, namespace / task_id, f"codex/tasks/{task_id}", namespace / ".devcrew-state" / f"{task_id}.json"
+    return (
+        root,
+        common,
+        identity,
+        namespace / task_id,
+        f"codex/tasks/{task_id}",
+        namespace / ".devcrew-state" / f"{task_id}.json",
+    )
 
 
 def _current_state(root, task_id):
@@ -106,7 +152,11 @@ def _current_state(root, task_id):
 
 def primary_branch(project, *, current=None):
     """Resolve local Git evidence without fetching or changing references."""
-    heads = set(_git(project, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/").stdout.splitlines())
+    heads = set(
+        _git(
+            project, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/"
+        ).stdout.splitlines()
+    )
     explicit = _git(project, "config", "--local", "--get", "devcrew.primaryBranch", check=False)
     if explicit.returncode == 0:
         name = explicit.stdout.strip()
@@ -118,7 +168,7 @@ def primary_branch(project, *, current=None):
         prefix = f"refs/remotes/{remote}/"
         ref = _git(project, "symbolic-ref", "--quiet", prefix + "HEAD", check=False)
         if ref.returncode == 0 and ref.stdout.strip().startswith(prefix):
-            name = ref.stdout.strip()[len(prefix):]
+            name = ref.stdout.strip()[len(prefix) :]
             if remote == "origin":
                 remote_defaults = {name}
                 break
@@ -128,7 +178,9 @@ def primary_branch(project, *, current=None):
             return next(iter(remote_defaults))
         if current is not None and current not in remote_defaults:
             return None
-        raise ValueError("PRIMARY_BRANCH_REQUIRED: remote default is ambiguous or unavailable locally")
+        raise ValueError(
+            "PRIMARY_BRANCH_REQUIRED: remote default is ambiguous or unavailable locally"
+        )
     configured = _git(project, "config", "--get", "init.defaultBranch", check=False).stdout.strip()
     if configured in heads:
         return configured
@@ -140,13 +192,19 @@ def primary_branch(project, *, current=None):
     if current is not None:
         # Without an authoritative default, preserve ordinary feature checkouts.
         return current if current in conventional else None
-    raise ValueError("PRIMARY_BRANCH_REQUIRED: set git config devcrew.primaryBranch to the local primary branch")
+    raise ValueError(
+        "PRIMARY_BRANCH_REQUIRED: set git config devcrew.primaryBranch to the local primary branch"
+    )
 
 
 def primary_head(project):
     """Resolve the selected primary branch to its local commit."""
     name = primary_branch(project)
-    return _git(project, "rev-parse", "--verify", f"refs/heads/{name}^{{commit}}").stdout.strip().lower()
+    return (
+        _git(project, "rev-parse", "--verify", f"refs/heads/{name}^{{commit}}")
+        .stdout.strip()
+        .lower()
+    )
 
 
 def _safe_parent(path):
@@ -196,7 +254,9 @@ def _receipt_lock(path):
 def _receipt_revision(record):
     revision = record.get("receipt_revision", 0) if record is not None else 0
     if type(revision) is not int or revision < 0:
-        raise ValueError("TASK_WORKTREE_STATE_INVALID: receipt_revision must be a nonnegative integer")
+        raise ValueError(
+            "TASK_WORKTREE_STATE_INVALID: receipt_revision must be a nonnegative integer"
+        )
     return revision
 
 
@@ -209,9 +269,14 @@ def _check_snapshot(path, expected):
         raise ValueError("TASK_WORKTREE_STATE_INVALID") from exc
     if current is not None and not isinstance(current, dict):
         raise ValueError("TASK_WORKTREE_STATE_INVALID")
-    if (_receipt_revision(current) != _receipt_revision(expected) or current != expected or
-            (expected is None and (path.exists() or fs.is_link(path)))):
-        raise ValueError("TASK_WORKTREE_STATE_CONFLICT: receipt changed; resolve it again before retrying")
+    if (
+        _receipt_revision(current) != _receipt_revision(expected)
+        or current != expected
+        or (expected is None and (path.exists() or fs.is_link(path)))
+    ):
+        raise ValueError(
+            "TASK_WORKTREE_STATE_CONFLICT: receipt changed; resolve it again before retrying"
+        )
 
 
 def _atomic_json(path, data, *, expected):
@@ -224,11 +289,13 @@ def _atomic_json(path, data, *, expected):
 
 def _phase_manifest_lock(path):
     import devcrew_phase
+
     return devcrew_phase._manifest_lock(path.with_name(f"{path.stem}.phases.json"))
 
 
 def _require_no_candidate_transition(path):
     import devcrew_phase
+
     manifest_path = path.with_name(f"{path.stem}.phases.json")
     if manifest_path.exists():
         try:
@@ -250,9 +317,16 @@ def _check_phase_head(manifest, record):
     if phase.get("local_fix_transition") or phase.get("systemic_replan_transition"):
         heads.add(candidate.get("base"))
     link = manifest["worktree"]
-    if (record["expected_head"] not in heads or record["task_id"] != manifest["task_id"] or
-            any(record[key] != link[key] for key in ("repository_id", "task_worktree_root", "branch"))):
-        raise ValueError("PHASE_COMMIT_INCONSISTENT: receipt differs from current phase head or worktree linkage")
+    if (
+        record["expected_head"] not in heads
+        or record["task_id"] != manifest["task_id"]
+        or any(
+            record[key] != link[key] for key in ("repository_id", "task_worktree_root", "branch")
+        )
+    ):
+        raise ValueError(
+            "PHASE_COMMIT_INCONSISTENT: receipt differs from current phase head or worktree linkage"
+        )
     return phase
 
 
@@ -265,12 +339,16 @@ def _require_consistent_state(path, record):
         phase = _check_phase_head(manifest, record)
         if not (phase.get("local_fix_transition") or phase.get("systemic_replan_transition")):
             root = pathlib.Path(record["task_worktree_root"])
-            if (_git(root, "rev-parse", "HEAD").stdout.strip() != record["expected_head"] or
-                    _git(root, "symbolic-ref", "--short", "HEAD").stdout.strip() != record["branch"]):
+            if (
+                _git(root, "rev-parse", "HEAD").stdout.strip() != record["expected_head"]
+                or _git(root, "symbolic-ref", "--short", "HEAD").stdout.strip() != record["branch"]
+            ):
                 raise ValueError("Git HEAD/branch differs from receipt and manifest")
     except (ValueError, KeyError, TypeError, StopIteration) as exc:
-        raise ValueError(f"PHASE_COMMIT_INCONSISTENT: receipt={path}: {exc}; "
-                         "preserve Git, receipt, manifest and evidence for manual reconciliation") from exc
+        raise ValueError(
+            f"PHASE_COMMIT_INCONSISTENT: receipt={path}: {exc}; "
+            "preserve Git, receipt, manifest and evidence for manual reconciliation"
+        ) from exc
 
 
 def _store_receipt(path, data, expected):
@@ -303,44 +381,74 @@ def _read(path, identity, task_id, checkout, branch):
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    expected = {"schema_version": 1, "repository_id": identity, "task_id": task_id,
-                "task_worktree_root": str(checkout), "branch": branch}
-    fields = set(expected) | {"expected_head", "last_known_clean", "writer_dispatched_since_snapshot", "receipt_nonce"}
+    expected = {
+        "schema_version": 1,
+        "repository_id": identity,
+        "task_id": task_id,
+        "task_worktree_root": str(checkout),
+        "branch": branch,
+    }
+    fields = set(expected) | {
+        "expected_head",
+        "last_known_clean",
+        "writer_dispatched_since_snapshot",
+        "receipt_nonce",
+    }
     if isinstance(record, dict) and "receipt_revision" in record:
         fields.add("receipt_revision")
         if type(record["receipt_revision"]) is not int or record["receipt_revision"] < 0:
             return None
     if isinstance(record, dict) and "worktree_request" in record:
         fields.add("worktree_request")
-        if not isinstance(record["worktree_request"], str) or not record["worktree_request"].strip():
+        if (
+            not isinstance(record["worktree_request"], str)
+            or not record["worktree_request"].strip()
+        ):
             return None
     if isinstance(record, dict) and "created_from_branch" in record:
         fields.add("created_from_branch")
         source_branch = record["created_from_branch"]
         if not isinstance(source_branch, str) or not source_branch or "\0" in source_branch:
             return None
-        check = subprocess.run(["git", "check-ref-format", f"refs/heads/{source_branch}"], capture_output=True)
+        check = subprocess.run(
+            ["git", "check-ref-format", f"refs/heads/{source_branch}"], capture_output=True
+        )
         if check.returncode:
             return None
-    if (not isinstance(record, dict) or set(record) != fields or
-            type(record.get("schema_version")) is not int or
-            any(record.get(k) != v for k, v in expected.items())):
+    if (
+        not isinstance(record, dict)
+        or set(record) != fields
+        or type(record.get("schema_version")) is not int
+        or any(record.get(k) != v for k, v in expected.items())
+    ):
         return None
-    if (not isinstance(record.get("expected_head"), str) or
-            not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", record["expected_head"]) or
-            type(record.get("last_known_clean")) is not bool or
-            type(record.get("writer_dispatched_since_snapshot")) is not bool or
-            not isinstance(record.get("receipt_nonce"), str)):
+    if (
+        not isinstance(record.get("expected_head"), str)
+        or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", record["expected_head"])
+        or type(record.get("last_known_clean")) is not bool
+        or type(record.get("writer_dispatched_since_snapshot")) is not bool
+        or not isinstance(record.get("receipt_nonce"), str)
+    ):
         return None
     return record
 
 
 def _receipt(record, state, dirty=False):
-    receipt = {"status": "DIRTY" if dirty else ("CLEAN" if state == "RESOLVED" else f"TASK_WORKTREE_{state}"),
-            "state": state, "owner": "DEVCREW", "task_id": record["task_id"],
-            "repository_id": record["repository_id"], "task_worktree_root": record["task_worktree_root"],
-            "branch": record["branch"], "expected_head": record["expected_head"],
-            "head": record["expected_head"], "dirty": dirty, "receipt_nonce": record["receipt_nonce"]}
+    receipt = {
+        "status": "DIRTY"
+        if dirty
+        else ("CLEAN" if state == "RESOLVED" else f"TASK_WORKTREE_{state}"),
+        "state": state,
+        "owner": "DEVCREW",
+        "task_id": record["task_id"],
+        "repository_id": record["repository_id"],
+        "task_worktree_root": record["task_worktree_root"],
+        "branch": record["branch"],
+        "expected_head": record["expected_head"],
+        "head": record["expected_head"],
+        "dirty": dirty,
+        "receipt_nonce": record["receipt_nonce"],
+    }
     if "created_from_branch" in record:
         receipt["created_from_branch"] = record["created_from_branch"]
     return receipt
@@ -361,14 +469,22 @@ def create(project, task_id, base=None, *, worktree_request=None):
     if worktree_request is not None:
         if not isinstance(worktree_request, str) or not worktree_request.strip():
             raise ValueError("WORKTREE_REQUEST_REQUIRED: record the actual explicit user request")
-        return _create_worktree(project, task_id, primary_head(project) if base is None else base, worktree_request)
+        return _create_worktree(
+            project, task_id, primary_head(project) if base is None else base, worktree_request
+        )
     root, common, identity, path, branch, state_path = location(project, task_id)
     _require_no_candidate_transition(state_path)
     current_state = _current_state(root, task_id)
     if state_path.exists() or fs.is_link(state_path):
-        return {"status": "TASK_CHECKOUT_ALREADY_EXISTS", "task_id": task_id,
-                "task_worktree_root": str(path), "branch": branch}
-    current_branch = _git(root, "symbolic-ref", "--quiet", "--short", "HEAD", check=False).stdout.strip()
+        return {
+            "status": "TASK_CHECKOUT_ALREADY_EXISTS",
+            "task_id": task_id,
+            "task_worktree_root": str(path),
+            "branch": branch,
+        }
+    current_branch = _git(
+        root, "symbolic-ref", "--quiet", "--short", "HEAD", check=False
+    ).stdout.strip()
     if not current_branch:
         raise ValueError("TASK_CHECKOUT_BRANCH_REQUIRED: detached HEAD has no working branch")
     head = _git(root, "rev-parse", "HEAD").stdout.strip().lower()
@@ -377,18 +493,32 @@ def create(project, task_id, base=None, *, worktree_request=None):
     dirty = bool(_git(root, "status", "--porcelain", "--untracked-files=all").stdout)
     if not _safe_creation_parent(current_state.parent):
         raise ValueError("TASK_WORKTREE_PATH_COLLISION")
-    created_from_branch = current_branch if current_branch == primary_branch(root, current=current_branch) else None
+    created_from_branch = (
+        current_branch if current_branch == primary_branch(root, current=current_branch) else None
+    )
     if created_from_branch:
         stem, suffix = branch, 2
-        while _git(root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False).returncode == 0:
+        while (
+            _git(
+                root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False
+            ).returncode
+            == 0
+        ):
             branch, suffix = f"{stem}-{suffix}", suffix + 1
         _git(root, "switch", "--no-overwrite-ignore", "-c", branch, head)
     else:
         branch = current_branch
-    record = {"schema_version": 1, "repository_id": identity, "task_id": task_id,
-              "task_worktree_root": str(root), "branch": branch, "expected_head": head,
-              "last_known_clean": not dirty, "writer_dispatched_since_snapshot": False,
-              "receipt_nonce": secrets.token_hex(24)}
+    record = {
+        "schema_version": 1,
+        "repository_id": identity,
+        "task_id": task_id,
+        "task_worktree_root": str(root),
+        "branch": branch,
+        "expected_head": head,
+        "last_known_clean": not dirty,
+        "writer_dispatched_since_snapshot": False,
+        "receipt_nonce": secrets.token_hex(24),
+    }
     if created_from_branch:
         record["created_from_branch"] = created_from_branch
     _atomic_json(current_state, record, expected=None)
@@ -406,53 +536,90 @@ def _create_worktree(project, task_id, base, worktree_request):
     if resolved.returncode or resolved.stdout.strip().lower() != base.lower():
         raise ValueError("INVALID_BASE_SHA")
     if base.lower() != primary_head(root):
-        raise ValueError("PRIMARY_BASE_MISMATCH: task branch must start at the local primary branch head")
+        raise ValueError(
+            "PRIMARY_BASE_MISMATCH: task branch must start at the local primary branch head"
+        )
     entries = _worktrees(root)
-    registered = next((item for item in entries if pathlib.Path(item.get("worktree", "")) == path), None)
+    registered = next(
+        (item for item in entries if pathlib.Path(item.get("worktree", "")) == path), None
+    )
     if registered:
         if registered.get("branch") == f"refs/heads/{branch}" and path.is_dir():
-            return {"status": "TASK_WORKTREE_ALREADY_EXISTS", "task_id": task_id,
-                    "task_worktree_root": str(path), "branch": branch}
+            return {
+                "status": "TASK_WORKTREE_ALREADY_EXISTS",
+                "task_id": task_id,
+                "task_worktree_root": str(path),
+                "branch": branch,
+            }
         raise ValueError("TASK_WORKTREE_PATH_COLLISION")
     if path.exists() or fs.is_link(path):
         raise ValueError("TASK_WORKTREE_PATH_COLLISION")
     if not _safe_creation_parent(path.parent) or not _safe_creation_parent(state_path.parent):
         raise ValueError("TASK_WORKTREE_PATH_COLLISION")
-    if _git(root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False).returncode == 0:
-        return {"status": "TASK_WORKTREE_BRANCH_COLLISION", "task_id": task_id,
-                "task_worktree_root": str(path), "branch": branch}
+    if (
+        _git(
+            root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False
+        ).returncode
+        == 0
+    ):
+        return {
+            "status": "TASK_WORKTREE_BRANCH_COLLISION",
+            "task_id": task_id,
+            "task_worktree_root": str(path),
+            "branch": branch,
+        }
     if any(item.get("branch") == f"refs/heads/{branch}" for item in entries):
-        return {"status": "TASK_WORKTREE_BRANCH_COLLISION", "task_id": task_id,
-                "task_worktree_root": str(path), "branch": branch}
+        return {
+            "status": "TASK_WORKTREE_BRANCH_COLLISION",
+            "task_id": task_id,
+            "task_worktree_root": str(path),
+            "branch": branch,
+        }
     path.parent.mkdir(parents=True, exist_ok=True)
     _git(root, "worktree", "add", "-b", branch, str(path), base)
     dirty = bool(_git(path, "status", "--porcelain", "--untracked-files=all").stdout)
     if dirty or _git(path, "rev-parse", "HEAD").stdout.strip().lower() != base.lower():
         raise ValueError("TASK_WORKTREE_CREATE_VALIDATION_FAILED")
     created_from_branch = primary_branch(root)
-    record = {"schema_version": 1, "repository_id": identity, "task_id": task_id,
-              "task_worktree_root": str(path), "branch": branch, "expected_head": base.lower(),
-              "last_known_clean": True, "writer_dispatched_since_snapshot": False,
-              "receipt_nonce": secrets.token_hex(24), "worktree_request": worktree_request.strip(),
-              "created_from_branch": created_from_branch}
+    record = {
+        "schema_version": 1,
+        "repository_id": identity,
+        "task_id": task_id,
+        "task_worktree_root": str(path),
+        "branch": branch,
+        "expected_head": base.lower(),
+        "last_known_clean": True,
+        "writer_dispatched_since_snapshot": False,
+        "receipt_nonce": secrets.token_hex(24),
+        "worktree_request": worktree_request.strip(),
+        "created_from_branch": created_from_branch,
+    }
     _atomic_json(state_path, record, expected=None)
     return _receipt(record, "CREATED")
 
 
 def resolve(project, task_id, *, read_only=False, worktree_request=None, _repository_metadata=None):
     root, common, identity, path, branch, state_path = location(
-        project, task_id, _repository_metadata=_repository_metadata)
+        project, task_id, _repository_metadata=_repository_metadata
+    )
+
     def git(target, *args, check=True):
         return _git(target, *args, check=check, read_only=read_only)
+
     if not read_only:
         _require_no_candidate_transition(state_path)
     record = _read(state_path, identity, task_id, path, branch)
     if record is None:
         if not path.exists() and not fs.is_link(path):
-            return {"status": "UNSAFE_MISSING_WORKTREE", "task_id": task_id,
-                    "task_worktree_root": str(path), "branch": branch}
+            return {
+                "status": "UNSAFE_MISSING_WORKTREE",
+                "task_id": task_id,
+                "task_worktree_root": str(path),
+                "branch": branch,
+            }
         raise ValueError("TASK_WORKTREE_STATE_INVALID")
     import devcrew_phase
+
     phase_path = state_path.with_name(f"{state_path.stem}.phases.json")
     if phase_path.exists():
         try:
@@ -464,8 +631,10 @@ def resolve(project, task_id, *, read_only=False, worktree_request=None, _reposi
             if "candidate_transition" not in manifest:
                 _check_phase_head(manifest, record)
         except (OSError, ValueError, KeyError, TypeError, StopIteration) as exc:
-            raise ValueError(f"PHASE_COMMIT_INCONSISTENT: manifest={phase_path}, receipt={state_path}: {exc}; "
-                             "preserve Git, receipt, manifest and evidence for manual reconciliation") from exc
+            raise ValueError(
+                f"PHASE_COMMIT_INCONSISTENT: manifest={phase_path}, receipt={state_path}: {exc}; "
+                "preserve Git, receipt, manifest and evidence for manual reconciliation"
+            ) from exc
     snapshot = dict(record)
     if worktree_request is not None:
         if read_only or not isinstance(worktree_request, str) or not worktree_request.strip():
@@ -477,68 +646,147 @@ def resolve(project, task_id, *, read_only=False, worktree_request=None, _reposi
             _atomic_json(state_path, record, expected=snapshot)
             snapshot = dict(record)
     if path != root and not record.get("worktree_request") and path.exists():
-        raise ValueError("WORKTREE_REQUEST_REQUIRED: existing worktree requires an explicit user request")
+        raise ValueError(
+            "WORKTREE_REQUEST_REQUIRED: existing worktree requires an explicit user request"
+        )
     entries = _worktrees(root, read_only=read_only)
     entry = next((item for item in entries if pathlib.Path(item.get("worktree", "")) == path), None)
     if not path.exists() and not fs.is_link(path):
         if read_only or not record.get("worktree_request") or path == root:
-            return {"status": "UNSAFE_MISSING_WORKTREE", "task_id": task_id,
-                    "task_worktree_root": str(path), "branch": branch}
-        if (entry is None and record["last_known_clean"] and not record["writer_dispatched_since_snapshot"] and
-                _safe_parent(path) and not path.exists() and not fs.is_link(path)):
+            return {
+                "status": "UNSAFE_MISSING_WORKTREE",
+                "task_id": task_id,
+                "task_worktree_root": str(path),
+                "branch": branch,
+            }
+        if (
+            entry is None
+            and record["last_known_clean"]
+            and not record["writer_dispatched_since_snapshot"]
+            and _safe_parent(path)
+            and not path.exists()
+            and not fs.is_link(path)
+        ):
             branch_head = git(root, "rev-parse", "--verify", f"refs/heads/{branch}", check=False)
-            attached_elsewhere = any(item.get("branch") == f"refs/heads/{branch}" for item in entries)
-            if (branch_head.returncode == 0 and branch_head.stdout.strip().lower() == record["expected_head"] and
-                    not attached_elsewhere):
+            attached_elsewhere = any(
+                item.get("branch") == f"refs/heads/{branch}" for item in entries
+            )
+            if (
+                branch_head.returncode == 0
+                and branch_head.stdout.strip().lower() == record["expected_head"]
+                and not attached_elsewhere
+            ):
                 _git(root, "worktree", "add", str(path), branch)
                 linked_head = _git(path, "rev-parse", "HEAD").stdout.strip().lower()
                 linked_branch = _git(path, "symbolic-ref", "--short", "HEAD").stdout.strip()
-                current_branch_head = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}").stdout.strip().lower()
-                clean = not bool(_git(path, "status", "--porcelain", "--untracked-files=all").stdout)
-                if linked_head != record["expected_head"] or current_branch_head != record["expected_head"] or linked_branch != branch or not clean:
+                current_branch_head = (
+                    _git(root, "rev-parse", "--verify", f"refs/heads/{branch}")
+                    .stdout.strip()
+                    .lower()
+                )
+                clean = not bool(
+                    _git(path, "status", "--porcelain", "--untracked-files=all").stdout
+                )
+                if (
+                    linked_head != record["expected_head"]
+                    or current_branch_head != record["expected_head"]
+                    or linked_branch != branch
+                    or not clean
+                ):
                     raise ValueError("TASK_WORKTREE_RECREATE_VALIDATION_FAILED")
                 verified = resolve(root, task_id)
-                if verified.get("state") != "RESOLVED" or verified.get("head", "").lower() != record["expected_head"]:
+                if (
+                    verified.get("state") != "RESOLVED"
+                    or verified.get("head", "").lower() != record["expected_head"]
+                ):
                     raise ValueError("TASK_WORKTREE_RECREATE_VALIDATION_FAILED")
                 return _receipt(record, "RECREATED")
-        elif (entry is not None and record["last_known_clean"] and
-              not record["writer_dispatched_since_snapshot"] and _safe_parent(path) and
-              not path.exists() and not fs.is_link(path)):
+        elif (
+            entry is not None
+            and record["last_known_clean"]
+            and not record["writer_dispatched_since_snapshot"]
+            and _safe_parent(path)
+            and not path.exists()
+            and not fs.is_link(path)
+        ):
             matches = [item for item in entries if pathlib.Path(item.get("worktree", "")) == path]
-            branch_entries = [item for item in entries if item.get("branch") == f"refs/heads/{branch}"]
+            branch_entries = [
+                item for item in entries if item.get("branch") == f"refs/heads/{branch}"
+            ]
             branch_head = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}", check=False)
-            if (len(matches) == 1 and len(branch_entries) == 1 and entry.get("branch") == f"refs/heads/{branch}" and
-                    entry.get("HEAD", "").lower() == record["expected_head"] and branch_head.returncode == 0 and
-                    branch_head.stdout.strip().lower() == record["expected_head"]):
+            if (
+                len(matches) == 1
+                and len(branch_entries) == 1
+                and entry.get("branch") == f"refs/heads/{branch}"
+                and entry.get("HEAD", "").lower() == record["expected_head"]
+                and branch_head.returncode == 0
+                and branch_head.stdout.strip().lower() == record["expected_head"]
+            ):
                 other_entries = [item for item in entries if item is not entry]
                 removed = _git(root, "worktree", "remove", str(path), check=False)
                 after_remove = _worktrees(root)
-                if (removed.returncode or
-                        any(pathlib.Path(item.get("worktree", "")) == path for item in after_remove) or
-                        after_remove != other_entries):
-                    return {"status": "UNSAFE_MISSING_WORKTREE", "task_id": task_id,
-                            "task_worktree_root": str(path), "branch": branch}
+                if (
+                    removed.returncode
+                    or any(pathlib.Path(item.get("worktree", "")) == path for item in after_remove)
+                    or after_remove != other_entries
+                ):
+                    return {
+                        "status": "UNSAFE_MISSING_WORKTREE",
+                        "task_id": task_id,
+                        "task_worktree_root": str(path),
+                        "branch": branch,
+                    }
                 _git(root, "worktree", "add", str(path), branch)
                 linked_head = _git(path, "rev-parse", "HEAD").stdout.strip().lower()
                 linked_branch = _git(path, "symbolic-ref", "--short", "HEAD").stdout.strip()
-                current_branch_head = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}").stdout.strip().lower()
-                clean = not bool(_git(path, "status", "--porcelain", "--untracked-files=all").stdout)
-                if linked_head != record["expected_head"] or current_branch_head != record["expected_head"] or linked_branch != branch or not clean:
+                current_branch_head = (
+                    _git(root, "rev-parse", "--verify", f"refs/heads/{branch}")
+                    .stdout.strip()
+                    .lower()
+                )
+                clean = not bool(
+                    _git(path, "status", "--porcelain", "--untracked-files=all").stdout
+                )
+                if (
+                    linked_head != record["expected_head"]
+                    or current_branch_head != record["expected_head"]
+                    or linked_branch != branch
+                    or not clean
+                ):
                     raise ValueError("TASK_WORKTREE_RECREATE_VALIDATION_FAILED")
                 verified = resolve(root, task_id)
-                if verified.get("state") != "RESOLVED" or verified.get("head", "").lower() != record["expected_head"]:
+                if (
+                    verified.get("state") != "RESOLVED"
+                    or verified.get("head", "").lower() != record["expected_head"]
+                ):
                     raise ValueError("TASK_WORKTREE_RECREATE_VALIDATION_FAILED")
                 return _receipt(record, "RECREATED")
-        return {"status": "UNSAFE_MISSING_WORKTREE", "task_id": task_id,
-                "task_worktree_root": str(path), "branch": branch}
-    if fs.is_link(path) or not path.is_dir() or entry is None or entry.get("branch") != f"refs/heads/{branch}":
+        return {
+            "status": "UNSAFE_MISSING_WORKTREE",
+            "task_id": task_id,
+            "task_worktree_root": str(path),
+            "branch": branch,
+        }
+    if (
+        fs.is_link(path)
+        or not path.is_dir()
+        or entry is None
+        or entry.get("branch") != f"refs/heads/{branch}"
+    ):
         raise ValueError("TASK_WORKTREE_PATH_COLLISION")
     linked_root, linked_common, head = _linked_repository_details(path, read_only=read_only)
     branch_head = git(root, "rev-parse", "--verify", f"refs/heads/{branch}", check=False)
-    if (branch_head.returncode or branch_head.stdout.strip().lower() != head or
-            linked_root != path.resolve() or linked_common != common or head != record["expected_head"]):
-        raise ValueError(f"TASK_WORKTREE_REPOSITORY_MISMATCH: HEAD={head}, receipt expected_head={record['expected_head']}; "
-                         f"receipt={state_path}; preserve Git, receipt, manifest and evidence for manual reconciliation")
+    if (
+        branch_head.returncode
+        or branch_head.stdout.strip().lower() != head
+        or linked_root != path.resolve()
+        or linked_common != common
+        or head != record["expected_head"]
+    ):
+        raise ValueError(
+            f"TASK_WORKTREE_REPOSITORY_MISMATCH: HEAD={head}, receipt expected_head={record['expected_head']}; "
+            f"receipt={state_path}; preserve Git, receipt, manifest and evidence for manual reconciliation"
+        )
     if record != snapshot:
         _atomic_json(state_path, record, expected=snapshot)
         snapshot = dict(record)
@@ -559,12 +807,19 @@ def validate_dispatch(project, task_id, worktree, base, receipt):
     record = _read(state_path, identity, task_id, path, branch)
     if not isinstance(receipt, dict) or record is None:
         raise ValueError("TASK_WORKTREE_INVALID: missing lifecycle receipt")
-    if (receipt.get("owner") != "DEVCREW" or receipt.get("state") not in ("CREATED", "RESOLVED", "RECREATED") or
-            receipt.get("receipt_nonce") != record["receipt_nonce"] or receipt.get("repository_id") != identity or
-            receipt.get("task_id") != task_id or receipt.get("task_worktree_root") != str(path) or
-            receipt.get("branch") != branch or not isinstance(base, str) or
-            not isinstance(receipt.get("expected_head"), str) or receipt["expected_head"].lower() != base.lower() or
-            pathlib.Path(worktree) != path):
+    if (
+        receipt.get("owner") != "DEVCREW"
+        or receipt.get("state") not in ("CREATED", "RESOLVED", "RECREATED")
+        or receipt.get("receipt_nonce") != record["receipt_nonce"]
+        or receipt.get("repository_id") != identity
+        or receipt.get("task_id") != task_id
+        or receipt.get("task_worktree_root") != str(path)
+        or receipt.get("branch") != branch
+        or not isinstance(base, str)
+        or not isinstance(receipt.get("expected_head"), str)
+        or receipt["expected_head"].lower() != base.lower()
+        or pathlib.Path(worktree) != path
+    ):
         raise ValueError("TASK_WORKTREE_INVALID: stale or mismatched lifecycle receipt")
     fresh = resolve(root, task_id)
     if fresh.get("state") not in ("RESOLVED",) or fresh.get("head", "").lower() != base.lower():
@@ -572,8 +827,11 @@ def validate_dispatch(project, task_id, worktree, base, receipt):
     # resolve may refresh cleanliness. Reload before modifying its latest state,
     # and reject a receipt invalidated by another dispatch or head transition.
     record = _read(state_path, identity, task_id, path, branch)
-    if (record is None or record["receipt_nonce"] != receipt["receipt_nonce"] or
-            record["expected_head"].lower() != base.lower()):
+    if (
+        record is None
+        or record["receipt_nonce"] != receipt["receipt_nonce"]
+        or record["expected_head"].lower() != base.lower()
+    ):
         raise ValueError("TASK_WORKTREE_INVALID: stale or mismatched lifecycle receipt")
     snapshot = dict(record)
     record["writer_dispatched_since_snapshot"] = True
@@ -588,15 +846,22 @@ def advance_expected_head(project, task_id, expected, candidate, *, before_advan
     with _phase_manifest_lock(state_path), _receipt_lock(state_path):
         _require_no_candidate_transition(state_path)
         record = _read(state_path, identity, task_id, path, branch)
-        if (record is None or record["expected_head"] != expected or
-                not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", candidate)):
+        if (
+            record is None
+            or record["expected_head"] != expected
+            or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", candidate)
+        ):
             raise ValueError("TASK_WORKTREE_STATE_INVALID")
         snapshot = dict(record)
         if before_advance is not None:
             before_advance()
         actual = _git(path, "rev-parse", "HEAD").stdout.strip().lower()
         actual_branch = _git(path, "symbolic-ref", "--short", "HEAD").stdout.strip()
-        if actual != candidate or actual_branch != branch or _git(path, "status", "--porcelain", "--untracked-files=all").stdout:
+        if (
+            actual != candidate
+            or actual_branch != branch
+            or _git(path, "status", "--porcelain", "--untracked-files=all").stdout
+        ):
             raise ValueError("TASK_WORKTREE_COMMIT_VALIDATION_FAILED")
         record["expected_head"] = candidate
         record["last_known_clean"] = True

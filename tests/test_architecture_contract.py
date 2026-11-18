@@ -65,27 +65,48 @@ class ArchitectureContract(unittest.TestCase):
     def test_adr_conflicts_and_speculative_abstractions_are_explicitly_bounded(self):
         self.assertIn("If evidence conflicts with an ADR, report the ADR", self.architecture)
         self.assertIn("Do not declare the ADR obsolete", self.architecture)
-        self.assertIn("An abstraction justified only by hypothetical future variation is not a recommendation", self.architecture)
-        self.assertIn("Do not recommend repositories, interfaces, factories, or adapters merely as a pattern", self.architecture)
+        self.assertIn(
+            "An abstraction justified only by hypothetical future variation is not a recommendation",
+            self.architecture,
+        )
+        self.assertIn(
+            "Do not recommend repositories, interfaces, factories, or adapters merely as a pattern",
+            self.architecture,
+        )
 
     def test_candidate_handoff_preserves_uncertainty_and_routes_by_remaining_work(self):
         for field in (
-            "ARCHITECTURE_CANDIDATE:", "GOAL:", "EVIDENCE:", "PROPOSED_DIRECTION:",
-            "ACCEPTANCE_INTENT:", "RISKS:", "RELEVANT_FILES:", "OPEN_DECISIONS:",
+            "ARCHITECTURE_CANDIDATE:",
+            "GOAL:",
+            "EVIDENCE:",
+            "PROPOSED_DIRECTION:",
+            "ACCEPTANCE_INTENT:",
+            "RISKS:",
+            "RELEVANT_FILES:",
+            "OPEN_DECISIONS:",
         ):
             with self.subTest(field=field):
                 self.assertIn(field, self.architecture)
                 self.assertIn(field, self.autopilot)
         self.assertIn("Route clear requirements to `devcrew-task`", self.architecture)
-        self.assertIn("Route substantial unresolved product or architecture requirements to `devcrew-brief`", self.architecture)
-        self.assertIn("Route a request to prove the cause of a specific failure to `devcrew-diagnose`", self.architecture)
+        self.assertIn(
+            "Route substantial unresolved product or architecture requirements to `devcrew-brief`",
+            self.architecture,
+        )
+        self.assertIn(
+            "Route a request to prove the cause of a specific failure to `devcrew-diagnose`",
+            self.architecture,
+        )
 
     def test_shared_policies_and_bounded_models_cost_routing_are_referenced(self):
         self.assertIn("shared [cost policy]", self.architecture)
         self.assertIn("[engineering policy]", self.architecture)
         self.assertIn("bounded/low", self.architecture)
         self.assertIn("bounded/medium", self.architecture)
-        self.assertIn("Escalate to a stronger model only for a concrete evidence-based reason", self.architecture)
+        self.assertIn(
+            "Escalate to a stronger model only for a concrete evidence-based reason",
+            self.architecture,
+        )
 
 
 if __name__ == "__main__":

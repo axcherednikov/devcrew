@@ -23,8 +23,9 @@ NAME_LIMIT = 128
 
 def _project(path: str) -> pathlib.Path:
     try:
-        root_bytes = subprocess.run(["git", "-C", path, "rev-parse", "--show-toplevel"],
-                                    check=True, capture_output=True).stdout
+        root_bytes = subprocess.run(
+            ["git", "-C", path, "rev-parse", "--show-toplevel"], check=True, capture_output=True
+        ).stdout
     except (OSError, subprocess.CalledProcessError):
         raise ServerProfileError("project must be inside a Git repository") from None
     if root_bytes.endswith(b"\n"):
@@ -35,8 +36,15 @@ def _project(path: str) -> pathlib.Path:
 
 
 def _validate_name(name: object) -> str:
-    if not isinstance(name, str) or not name or len(name) > NAME_LIMIT or any(ord(c) < 32 or ord(c) == 127 for c in name):
-        raise ServerProfileError("name must be a non-empty string of at most 128 characters without controls")
+    if (
+        not isinstance(name, str)
+        or not name
+        or len(name) > NAME_LIMIT
+        or any(ord(c) < 32 or ord(c) == 127 for c in name)
+    ):
+        raise ServerProfileError(
+            "name must be a non-empty string of at most 128 characters without controls"
+        )
     return name
 
 
@@ -78,7 +86,9 @@ def _safe_component(path: pathlib.Path, *, directory: bool) -> bool:
         info = path.lstat()
     except FileNotFoundError:
         return False
-    if fs.is_link(path) or (not stat.S_ISDIR(info.st_mode) if directory else not stat.S_ISREG(info.st_mode)):
+    if fs.is_link(path) or (
+        not stat.S_ISDIR(info.st_mode) if directory else not stat.S_ISREG(info.st_mode)
+    ):
         raise ServerProfileError(f"unsafe path type: {path.name}")
     if not fs.has_private_mode(path, 0o700 if directory else 0o600):
         try:
@@ -106,9 +116,13 @@ def _store(root: pathlib.Path, *, create: bool) -> tuple[pathlib.Path, dict[str,
     except (OSError, UnicodeError, json.JSONDecodeError):
         raise ServerProfileError("profile store is unreadable or contains invalid JSON") from None
     schema_version = data.get("schema_version") if isinstance(data, dict) else None
-    if (not isinstance(data, dict) or set(data) != {"schema_version", "profiles"}
-            or type(schema_version) is not int or schema_version != 1
-            or not isinstance(data.get("profiles"), dict)):
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "profiles"}
+        or type(schema_version) is not int
+        or schema_version != 1
+        or not isinstance(data.get("profiles"), dict)
+    ):
         raise ServerProfileError("profile store has an unsupported schema")
     for name, profile in data["profiles"].items():
         _validate_name(name)
@@ -119,8 +133,11 @@ def _store(root: pathlib.Path, *, create: bool) -> tuple[pathlib.Path, dict[str,
 
 def _tracked(root: pathlib.Path) -> list[str]:
     try:
-        result = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", ":(top,literal).codex"],
-                                check=True, capture_output=True)
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", "--", ":(top,literal).codex"],
+            check=True,
+            capture_output=True,
+        )
     except (OSError, subprocess.CalledProcessError):
         raise ServerProfileError("cannot verify Git tracking state") from None
     return [item.decode("utf-8", "replace") for item in result.stdout.split(b"\0") if item]
@@ -137,7 +154,9 @@ def _ignore(root: pathlib.Path, file: pathlib.Path) -> None:
     def verify() -> bool:
         for target in (".codex/", ".codex/servers/profiles.json"):
             try:
-                result = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", target])
+                result = subprocess.run(
+                    ["git", "-C", str(root), "check-ignore", "-q", "--", target]
+                )
             except OSError:
                 raise ServerProfileError("cannot verify Git ignore rules") from None
             if result.returncode:
@@ -200,7 +219,9 @@ def command(args: object) -> int:
         if operation in ("save", "delete"):
             tracked = _tracked(root)
             if tracked:
-                raise ServerProfileError("tracked .codex state must be handled separately: " + ", ".join(tracked))
+                raise ServerProfileError(
+                    "tracked .codex state must be handled separately: " + ", ".join(tracked)
+                )
         file, data = _store(root, create=(operation == "save"))
         profiles = data["profiles"]
         if operation == "save":
