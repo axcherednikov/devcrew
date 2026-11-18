@@ -1,5 +1,7 @@
 # DevCrew
 
+<img src="docs/assets/devcrew-logo.png" alt="DevCrew logo with three robots" width="320">
+
 [![Tests on master](https://img.shields.io/github/actions/workflow/status/axcherednikov/devcrew/checks.yml?branch=master&label=tests&logo=github)](https://github.com/axcherednikov/devcrew/actions/workflows/checks.yml?query=branch%3Amaster)
 [![Latest release](https://img.shields.io/github/v/release/axcherednikov/devcrew?color=blue)](https://github.com/axcherednikov/devcrew/releases/latest)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](#requirements)
