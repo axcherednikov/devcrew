@@ -1,0 +1,17 @@
+name: Feature request
+description: Suggest a change to a workflow, the CLI, or documentation. English and Russian are welcome.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe your workflow and where the current behavior gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What outcome would help?
+      description: A concrete example helps us understand what success would look like.
+    validations:
+      required: true

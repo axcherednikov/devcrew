@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible problem or an accessibility barrier. English and Russian are welcome.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a security vulnerability, use [private reporting](https://github.com/axcherednikov/devcrew/security/advisories/new).
+        Before sharing output, remove tokens, private prompts, repository names, and local user paths.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Which command, workflow, or guide did you use? Include a small example if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected and actual result
+      description: What were you trying to do, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the DevCrew release or commit, operating system, and relevant Codex and Python versions.

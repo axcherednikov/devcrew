@@ -2,6 +2,8 @@
 
 [Русский](docs/ru/contributing.md)
 
+When taking part in issues or pull requests, follow the [code of conduct](CODE_OF_CONDUCT.md). You can also [report an accessibility barrier](ACCESSIBILITY.md).
+
 Use a small example when reporting a bug. Include the DevCrew version, Python and Codex versions, operating system, expected result and observed output. Replace repository names, user paths, tokens and customer data with synthetic examples. Use [private reporting](SECURITY.md) for security issues.
 
 ## Work on a change
