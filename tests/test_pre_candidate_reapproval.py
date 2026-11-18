@@ -58,6 +58,7 @@ class PreCandidateReapprovalTests(unittest.TestCase):
         self.git(self.host, "init", "-q")
         self.git(self.host, "config", "user.name", "Test")
         self.git(self.host, "config", "user.email", "test@example.com")
+        (self.host / ".gitignore").write_text("/.codex/\n")
         (self.host / "source.py").write_text("base\n")
         self.git(self.host, "add", ".")
         self.git(self.host, "commit", "-qm", "base")

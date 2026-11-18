@@ -155,7 +155,8 @@ class AgentContext(unittest.TestCase):
         git("config", "user.name", "Test")
         git("config", "user.email", "test@example.com")
         (project / "tracked.txt").write_text("base\n")
-        git("add", "tracked.txt")
+        (project / ".gitignore").write_text("/.codex/\n")
+        git("add", "tracked.txt", ".gitignore")
         git("commit", "-qm", "base")
         base = git("rev-parse", "HEAD").stdout.strip()
         if branch:

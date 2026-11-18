@@ -64,6 +64,7 @@ class CandidateCommitTests(unittest.TestCase):
         self.git(self.host, "init", "-q")
         self.git(self.host, "config", "user.name", "Test")
         self.git(self.host, "config", "user.email", "test@example.com")
+        (self.host / ".gitignore").write_text("/.codex/\n")
         (self.host / "owned.txt").write_text("base\n")
         (self.host / "other.txt").write_text("base\n")
         (self.host / " owned.txt").write_text("outside base\n")
