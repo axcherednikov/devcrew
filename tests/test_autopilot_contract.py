@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 AUTOPILOT = ROOT / "skills" / "devcrew-autopilot" / "SKILL.md"
 
@@ -48,12 +47,23 @@ class AutopilotContract(unittest.TestCase):
         self.assertIn("Do not hardcode model names", self.text)
 
     def test_dynamic_routing_records_independent_axes_and_explicit_spawn(self):
-        for field in ("COORDINATION_COMPLEXITY", "DECISION_COMPLEXITY", "IMPLEMENTATION_COMPLEXITY",
-                      "REVIEW_COMPLEXITY", "RISK", "RESOLVED_MODEL", "REASONING_EFFORT", "SELECTION_REASON"):
+        for field in (
+            "COORDINATION_COMPLEXITY",
+            "DECISION_COMPLEXITY",
+            "IMPLEMENTATION_COMPLEXITY",
+            "REVIEW_COMPLEXITY",
+            "RISK",
+            "RESOLVED_MODEL",
+            "REASONING_EFFORT",
+            "SELECTION_REASON",
+        ):
             self.assertIn(field, self.text)
         self.assertIn("explicit `model` and `reasoning_effort`", self.text)
         self.assertIn("exact role contract", self.text)
-        self.assertIn("Risk, task size, retries and repeated failures never escalate executor capability", self.text)
+        self.assertIn(
+            "Risk, task size, retries and repeated failures never escalate executor capability",
+            self.text,
+        )
         self.assertIn("bounded capability at medium for NORMAL/COMPLEX work", self.text)
         self.assertIn("SYSTEMIC_REPLAN routes back to planner", self.text)
         self.assertNotIn("preserve role defaults and report the limitation", self.text)
@@ -63,9 +73,16 @@ class AutopilotContract(unittest.TestCase):
         self.assertIn('fork_turns: "none"', self.text)
         self.assertIn("Do not dispatch a reasoning model merely to wait", self.text)
         self.assertIn("send only the blocking findings", self.text)
-        self.assertIn("If the corrected candidate fails again, assess evidence, the bounded next action and cost", self.text)
-        self.assertIn("Stop repeated actions without discriminating evidence or oscillation", self.text)
-        self.assertIn("A PASS on the unchanged captured HEAD and fingerprint remains valid", self.text)
+        self.assertIn(
+            "If the corrected candidate fails again, assess evidence, the bounded next action and cost",
+            self.text,
+        )
+        self.assertIn(
+            "Stop repeated actions without discriminating evidence or oscillation", self.text
+        )
+        self.assertIn(
+            "A PASS on the unchanged captured HEAD and fingerprint remains valid", self.text
+        )
 
 
 if __name__ == "__main__":

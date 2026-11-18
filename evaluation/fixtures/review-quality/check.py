@@ -1,4 +1,5 @@
 """Run the public behavioral probe and write one immutable observation marker."""
+
 import argparse
 import hashlib
 import importlib.util
@@ -28,7 +29,10 @@ def main():
     parser.add_argument("--fixture", required=True, choices=("a", "b"))
     parser.add_argument("--observations", required=True, type=pathlib.Path)
     args = parser.parse_args()
-    if not args.run_id or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in args.run_id):
+    if not args.run_id or any(
+        c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+        for c in args.run_id
+    ):
         raise SystemExit("invalid run id")
     root = pathlib.Path.cwd()
     module = load(root / "invoice_api.py")
@@ -42,11 +46,17 @@ def main():
         zero = {"raised": True, "type": type(exc).__name__}
     default_limit = module.listing_limit(None)
     boundary = module.listing_limit(100)
-    output = {"schema_version": 1, "run_id": args.run_id,
-              "fixture": args.fixture, "cwd": str(root),
-              "invoice_calls": before_calls,
-              "tenant_results": [first, second], "explicit_zero": zero,
-              "absent_limit_default": default_limit, "valid_boundary": boundary}
+    output = {
+        "schema_version": 1,
+        "run_id": args.run_id,
+        "fixture": args.fixture,
+        "cwd": str(root),
+        "invoice_calls": before_calls,
+        "tenant_results": [first, second],
+        "explicit_zero": zero,
+        "absent_limit_default": default_limit,
+        "valid_boundary": boundary,
+    }
     payload = json.dumps(output, sort_keys=True, separators=(",", ":"))
     args.observations.mkdir(parents=True, exist_ok=True)
     marker = args.observations / f"{args.run_id}.json"

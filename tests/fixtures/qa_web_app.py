@@ -15,7 +15,6 @@ from http.server import BaseHTTPRequestHandler
 
 from loopback_http import ThreadingLoopbackHTTPServer
 
-
 PAGE = """<!doctype html>
 <html lang="en">
 <head>
@@ -87,7 +86,11 @@ class Store:
         with self.lock:
             identifier = str(self.next_id)
             self.next_id += 1
-            item = {"id": identifier, "name": payload.get("name", ""), "label": payload.get("label", "")}
+            item = {
+                "id": identifier,
+                "name": payload.get("name", ""),
+                "label": payload.get("label", ""),
+            }
             if "secret" in payload:
                 item["secret"] = payload["secret"]
             if not self.optimistic:

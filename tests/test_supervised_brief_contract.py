@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
@@ -9,7 +8,9 @@ class SupervisedBriefContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.brief = (ROOT / "skills/devcrew-brief/SKILL.md").read_text()
-        cls.supervision = (ROOT / "skills/devcrew-brief/references/supervised-execution.md").read_text()
+        cls.supervision = (
+            ROOT / "skills/devcrew-brief/references/supervised-execution.md"
+        ).read_text()
         cls.coordinate = (ROOT / "skills/devcrew-coordinate/SKILL.md").read_text()
         cls.procedure = (ROOT / "skills/devcrew-coordinate/references/procedure.md").read_text()
         cls.inventory = (ROOT / "skills/devcrew-coordinate/references/inventory.md").read_text()
@@ -20,7 +21,9 @@ class SupervisedBriefContract(unittest.TestCase):
 
     def test_approval_precedes_any_create_or_execution(self):
         self.assertIn("Until that approval exists", self.brief)
-        self.assertIn("do not create a thread, dispatch an executor, or start implementation", self.brief)
+        self.assertIn(
+            "do not create a thread, dispatch an executor, or start implementation", self.brief
+        )
         self.assertIn("Agent messages are not human approval", self.brief)
 
     def test_model_and_material_decisions_gate_full_execution_brief(self):
@@ -29,17 +32,32 @@ class SupervisedBriefContract(unittest.TestCase):
         self.assertIn("ask the owner to choose", self.supervision)
         self.assertIn("the model or increase cost automatically", self.supervision)
         self.assertIn("approval for child-chat creation remains a separate gate", self.supervision)
-        self.assertIn("Resolve material owner decisions that affect child scope or permissions", self.supervision)
+        self.assertIn(
+            "Resolve material owner decisions that affect child scope or permissions",
+            self.supervision,
+        )
         self.assertIn("full briefs routed from `devcrew-task`", self.supervision)
 
     def test_parent_owns_only_supervised_child_inventory_and_not_preapproval_dispatch(self):
         self.assertIn("sole writer of its configured sessions Markdown", self.supervision)
         self.assertIn("must not write child-owned files or task cards", self.supervision)
-        self.assertIn("Never dispatch an executor from the parent before approval", self.supervision)
-        self.assertIn("Before creating the supervised child, confirm all material owner decisions are resolved", self.coordinate)
+        self.assertIn(
+            "Never dispatch an executor from the parent before approval", self.supervision
+        )
+        self.assertIn(
+            "Before creating the supervised child, confirm all material owner decisions are resolved",
+            self.coordinate,
+        )
 
     def test_native_tool_contract_and_project_identity_are_explicit(self):
-        for name in ("list_projects", "create_thread", "list_threads", "read_thread", "send_message_to_thread", "wait_threads"):
+        for name in (
+            "list_projects",
+            "create_thread",
+            "list_threads",
+            "read_thread",
+            "send_message_to_thread",
+            "wait_threads",
+        ):
             with self.subTest(tool=name):
                 self.assertIn(name, self.supervision)
         self.assertIn("project's real ID", self.supervision)
@@ -74,8 +92,18 @@ class SupervisedBriefContract(unittest.TestCase):
     def test_public_guides_cover_approval_and_recovery_in_both_languages(self):
         readme = (ROOT / "README.md").read_text()
         cases = {
-            "en": ("fresh project session", "explicitly approve", "Without approval", "reconciling the existing chat"),
-            "ru": ("новую сессию проекта", "явного одобрения", "Без одобрения", "сверьте существующий чат"),
+            "en": (
+                "fresh project session",
+                "explicitly approve",
+                "Without approval",
+                "reconciling the existing chat",
+            ),
+            "ru": (
+                "новую сессию проекта",
+                "явного одобрения",
+                "Без одобрения",
+                "сверьте существующий чат",
+            ),
         }
         for language, phrases in cases.items():
             path = f"docs/{language}/workflows.md"
@@ -86,17 +114,28 @@ class SupervisedBriefContract(unittest.TestCase):
                     self.assertIn(phrase, guide)
 
     def test_supervised_regression_scenarios_have_oracles(self):
-        section = self.routing.split("## Full-brief supervised visible-chat cases", 1)[1].split("## Coordinator vs agent execution policy cases", 1)[0]
+        section = self.routing.split("## Full-brief supervised visible-chat cases", 1)[1].split(
+            "## Coordinator vs agent execution policy cases", 1
+        )[0]
         cases = (
-            "brief-supervision-clear-task", "brief-supervision-accessible-answer",
-            "brief-supervision-single-question", "brief-supervision-material-brief",
-            "brief-supervision-no-approval", "brief-supervision-approved-create",
-            "brief-supervision-bounded-correction", "brief-supervision-scope-change",
-            "brief-supervision-adjacent-finding", "brief-supervision-direct-skill",
-            "brief-supervision-resume-confirmed", "brief-supervision-tool-unavailable",
-            "brief-supervision-model-boundary", "brief-supervision-readonly-loop",
-            "brief-supervision-local-attachment", "brief-supervision-attachment-no-retry-loop",
-            "brief-supervision-model-not-chosen", "brief-supervision-task-routed-material-uncertainty",
+            "brief-supervision-clear-task",
+            "brief-supervision-accessible-answer",
+            "brief-supervision-single-question",
+            "brief-supervision-material-brief",
+            "brief-supervision-no-approval",
+            "brief-supervision-approved-create",
+            "brief-supervision-bounded-correction",
+            "brief-supervision-scope-change",
+            "brief-supervision-adjacent-finding",
+            "brief-supervision-direct-skill",
+            "brief-supervision-resume-confirmed",
+            "brief-supervision-tool-unavailable",
+            "brief-supervision-model-boundary",
+            "brief-supervision-readonly-loop",
+            "brief-supervision-local-attachment",
+            "brief-supervision-attachment-no-retry-loop",
+            "brief-supervision-model-not-chosen",
+            "brief-supervision-task-routed-material-uncertainty",
             "brief-supervision-model-readonly",
         )
         for case in cases:

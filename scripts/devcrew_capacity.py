@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import devcrew_fs as fs
 import json
-import hashlib
 import os
 import pathlib
 import re
@@ -13,6 +11,7 @@ import uuid
 from typing import Any
 
 import devcrew_dispatch
+import devcrew_fs as fs
 
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 ROLES = {"planner", "executor", "reviewer"}
@@ -66,11 +65,23 @@ def _prepared(value: Any, role: str) -> tuple[dict[str, Any], dict[str, Any]]:
     route, dispatch = value.get("route"), value.get("dispatch")
     if not isinstance(route, dict) or not isinstance(dispatch, dict):
         raise CapacityError("PREPARED must contain route and dispatch objects")
-    if route.get("ROLE") != role or not route.get("RESOLVED_MODEL") or not route.get("REASONING_EFFORT"):
+    if (
+        route.get("ROLE") != role
+        or not route.get("RESOLVED_MODEL")
+        or not route.get("REASONING_EFFORT")
+    ):
         raise CapacityError("prepared route must match the requested role and resolve model/effort")
-    required_route = {"ROUTE_ID", "TASK_CLASS", "COORDINATION_COMPLEXITY", "DECISION_COMPLEXITY",
-                      "IMPLEMENTATION_COMPLEXITY", "REVIEW_COMPLEXITY", "RISK", "MODEL_CLASS",
-                      "SELECTION_REASON"}
+    required_route = {
+        "ROUTE_ID",
+        "TASK_CLASS",
+        "COORDINATION_COMPLEXITY",
+        "DECISION_COMPLEXITY",
+        "IMPLEMENTATION_COMPLEXITY",
+        "REVIEW_COMPLEXITY",
+        "RISK",
+        "MODEL_CLASS",
+        "SELECTION_REASON",
+    }
     if required_route - set(route):
         raise CapacityError("DISPATCH_ROUTE_REQUIRED: prepared route is incomplete")
     if dispatch.get("SPAWN_MODE") not in {"typed", "generic"}:
@@ -106,16 +117,26 @@ def _session_file(project: pathlib.Path, task_id: str, *, create: bool = False) 
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise CapacityError(f"invalid state configuration: {error}") from None
         paths = state.get("paths") if isinstance(state, dict) else None
-        if (not isinstance(state, dict) or type(state.get("schema_version")) is not int
-                or state["schema_version"] != 1 or not isinstance(paths, dict)):
+        if (
+            not isinstance(state, dict)
+            or type(state.get("schema_version")) is not int
+            or state["schema_version"] != 1
+            or not isinstance(paths, dict)
+        ):
             raise CapacityError("invalid state configuration schema")
         sessions_relative = paths.get("sessions")
-    raw_sessions = sessions_relative.replace("\\", "/") if isinstance(sessions_relative, str) else ""
-    if (not raw_sessions or fs.unsafe_parts(pathlib.PurePosixPath(raw_sessions).parts)
-            or pathlib.PurePosixPath(raw_sessions).is_absolute()
-            or re.match(r"^[A-Za-z]:", raw_sessions)
-            or any(part in ("", ".", "..") for part in raw_sessions.split("/"))
-            or any(char in raw_sessions for char in "*?[") or "\x00" in raw_sessions):
+    raw_sessions = (
+        sessions_relative.replace("\\", "/") if isinstance(sessions_relative, str) else ""
+    )
+    if (
+        not raw_sessions
+        or fs.unsafe_parts(pathlib.PurePosixPath(raw_sessions).parts)
+        or pathlib.PurePosixPath(raw_sessions).is_absolute()
+        or re.match(r"^[A-Za-z]:", raw_sessions)
+        or any(part in ("", ".", "..") for part in raw_sessions.split("/"))
+        or any(char in raw_sessions for char in "*?[")
+        or "\x00" in raw_sessions
+    ):
         raise CapacityError("configured sessions path must stay inside the project")
     sessions = project
     for part in pathlib.PurePosixPath(raw_sessions).parts:
@@ -129,11 +150,14 @@ def _session_file(project: pathlib.Path, task_id: str, *, create: bool = False) 
     return sessions / f"agent-capacity-{task_id}.json"
 
 
-def dispatch_receipt_path(project_root: str | pathlib.Path, task_id: str, *, create: bool = False) -> pathlib.Path:
+def dispatch_receipt_path(
+    project_root: str | pathlib.Path, task_id: str, *, create: bool = False
+) -> pathlib.Path:
     """Return the task's dispatch receipt path under configured sessions state."""
     project = pathlib.Path(_absolute_root(str(project_root)))
     return _session_file(project, _task_id(task_id), create=create).with_name(
-        f"agent-dispatch-{task_id}.json")
+        f"agent-dispatch-{task_id}.json"
+    )
 
 
 def _remove_active(path: pathlib.Path) -> None:
@@ -170,18 +194,21 @@ def report(project_root: str, report_data: Any) -> dict[str, Any]:
         raise CapacityError("spawn report requires explicit host-initiated call confirmation")
     try:
         issued = devcrew_dispatch.validate_issued(
-            project, normalized, store_path=dispatch_receipt_path(project, task_id))
+            project, normalized, store_path=dispatch_receipt_path(project, task_id)
+        )
     except devcrew_dispatch.DispatchError as exc:
         raise CapacityError(str(exc)) from None
-    path = _session_file(project, task_id,
-                         create=normalized["STATUS"] == "AGENT_CAPACITY_BLOCKED")
+    path = _session_file(project, task_id, create=normalized["STATUS"] == "AGENT_CAPACITY_BLOCKED")
     if path.exists():
         try:
             previous = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             raise CapacityError("existing capacity receipt is invalid") from None
-        if (not isinstance(previous, dict) or previous.get("STATUS") != "AGENT_CAPACITY_BLOCKED"
-                or previous.get("TASK_ID") != task_id):
+        if (
+            not isinstance(previous, dict)
+            or previous.get("STATUS") != "AGENT_CAPACITY_BLOCKED"
+            or previous.get("TASK_ID") != task_id
+        ):
             raise CapacityError("existing capacity receipt is not a valid blocker")
         if normalized.get("BLOCKER_ID") != previous.get("BLOCKER_ID"):
             raise CapacityError("spawn report does not reference the active capacity blocker")
@@ -219,7 +246,8 @@ def report(project_root: str, report_data: Any) -> dict[str, Any]:
     if normalized["STATUS"] == "SPAWN_SUCCESS":
         try:
             normalized["SPAWN_RECEIPT"] = devcrew_dispatch.record_spawn(
-                project, normalized, store_path=dispatch_receipt_path(project, task_id, create=True))
+                project, normalized, store_path=dispatch_receipt_path(project, task_id, create=True)
+            )
         except devcrew_dispatch.DispatchError as exc:
             raise CapacityError(str(exc)) from None
         normalized["ROUTE_APPLIED"] = True
@@ -251,7 +279,9 @@ def report(project_root: str, report_data: Any) -> dict[str, Any]:
     dispatch_path = dispatch_receipt_path(project, task_id)
     try:
         with devcrew_dispatch._locked(dispatch_path):
-            devcrew_dispatch._issued_match(devcrew_dispatch._read(dispatch_path), normalized, dispatch_path)
+            devcrew_dispatch._issued_match(
+                devcrew_dispatch._read(dispatch_path), normalized, dispatch_path
+            )
             _atomic_json(path, blocker)
     except devcrew_dispatch.DispatchError as exc:
         raise CapacityError(str(exc)) from None
@@ -269,8 +299,12 @@ def resume(project_root: str, task_id: str, *, host_initiated: bool) -> dict[str
         blocker = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise CapacityError(f"invalid capacity receipt: {error}") from None
-    if (not isinstance(blocker, dict) or blocker.get("STATUS") != "AGENT_CAPACITY_BLOCKED"
-            or blocker.get("TASK_ID") != task_id or blocker.get("RESUMABLE") is not True):
+    if (
+        not isinstance(blocker, dict)
+        or blocker.get("STATUS") != "AGENT_CAPACITY_BLOCKED"
+        or blocker.get("TASK_ID") != task_id
+        or blocker.get("RESUMABLE") is not True
+    ):
         raise CapacityError("capacity receipt is not resumable")
     if blocker.get("HOST_PROJECT_ROOT") != str(project.resolve()):
         raise CapacityError("capacity receipt belongs to another host project")
@@ -285,12 +319,17 @@ def resume(project_root: str, task_id: str, *, host_initiated: bool) -> dict[str
     identity = blocker.get("DISPATCH_IDENTITY")
     if not isinstance(identity, dict):
         raise CapacityError("capacity receipt has no dispatch identity")
-    report = {**identity, **blocker, "SPAWN_MODEL": blocker.get("RESOLVED_MODEL"),
-              "SPAWN_REASONING_EFFORT": blocker.get("REASONING_EFFORT"),
-              "SPAWN_MODE": dispatch["SPAWN_MODE"]}
+    report = {
+        **identity,
+        **blocker,
+        "SPAWN_MODEL": blocker.get("RESOLVED_MODEL"),
+        "SPAWN_REASONING_EFFORT": blocker.get("REASONING_EFFORT"),
+        "SPAWN_MODE": dispatch["SPAWN_MODE"],
+    }
     try:
         issued = devcrew_dispatch.validate_issued(
-            project, report, store_path=dispatch_receipt_path(project, task_id))
+            project, report, store_path=dispatch_receipt_path(project, task_id)
+        )
     except devcrew_dispatch.DispatchError as exc:
         raise CapacityError(str(exc)) from None
     if identity != issued["IDENTITY"]:
@@ -299,15 +338,19 @@ def resume(project_root: str, task_id: str, *, host_initiated: bool) -> dict[str
     blocker_id = blocker.get("BLOCKER_ID")
     if not isinstance(blocker_id, str) or not blocker_id:
         raise CapacityError("capacity receipt has no blocker identity")
-    return {"STATUS": "RESUME_READY", "BLOCKER_ID": blocker_id,
-            "TASK_ID": task_id, "REQUESTED_ROLE": role,
-            "CURRENT_STAGE": blocker["CURRENT_STAGE"],
-            "ATTEMPT_NUMBER": _attempt(blocker.get("ATTEMPT_NUMBER")) + 1,
-            "HOST_PROJECT_ROOT": blocker["HOST_PROJECT_ROOT"],
-            "TASK_WORKTREE_ROOT": blocker.get("TASK_WORKTREE_ROOT"),
-            "RESOLVED_MODEL": route["RESOLVED_MODEL"],
-            "REASONING_EFFORT": route["REASONING_EFFORT"],
-            "PREPARED": {"route": route, "dispatch": dispatch},
-            "SPAWN_PAYLOAD": blocker["SPAWN_PAYLOAD"],
-            "SPAWN_PAYLOAD_SHA256": blocker["SPAWN_PAYLOAD_SHA256"],
-            **blocker["DISPATCH_IDENTITY"]}
+    return {
+        "STATUS": "RESUME_READY",
+        "BLOCKER_ID": blocker_id,
+        "TASK_ID": task_id,
+        "REQUESTED_ROLE": role,
+        "CURRENT_STAGE": blocker["CURRENT_STAGE"],
+        "ATTEMPT_NUMBER": _attempt(blocker.get("ATTEMPT_NUMBER")) + 1,
+        "HOST_PROJECT_ROOT": blocker["HOST_PROJECT_ROOT"],
+        "TASK_WORKTREE_ROOT": blocker.get("TASK_WORKTREE_ROOT"),
+        "RESOLVED_MODEL": route["RESOLVED_MODEL"],
+        "REASONING_EFFORT": route["REASONING_EFFORT"],
+        "PREPARED": {"route": route, "dispatch": dispatch},
+        "SPAWN_PAYLOAD": blocker["SPAWN_PAYLOAD"],
+        "SPAWN_PAYLOAD_SHA256": blocker["SPAWN_PAYLOAD_SHA256"],
+        **blocker["DISPATCH_IDENTITY"],
+    }

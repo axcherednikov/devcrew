@@ -1,6 +1,5 @@
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SHARED = ROOT / "skills/devcrew-task/references/task-readiness.md"
@@ -25,11 +24,17 @@ class TaskReadinessContract(unittest.TestCase):
     def test_shared_rule_covers_outcome_scope_checks_uncertainty_and_source_routing(self):
         text = SHARED.read_text()
         for expected in (
-            "requested outcome", "scope and behavior", "observable checks",
-            "material unresolved decisions", "Do not demand absolute certainty",
-            "Silence is not approval", "Diagnosis, review, research and planning remain read-only",
-            "phase source-bind --source-spec FILE", "ordinary-source-gap FILE",
-            "loop guard", "adjacent finding",
+            "requested outcome",
+            "scope and behavior",
+            "observable checks",
+            "material unresolved decisions",
+            "Do not demand absolute certainty",
+            "Silence is not approval",
+            "Diagnosis, review, research and planning remain read-only",
+            "phase source-bind --source-spec FILE",
+            "ordinary-source-gap FILE",
+            "loop guard",
+            "adjacent finding",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, text)
@@ -66,7 +71,9 @@ class TaskReadinessContract(unittest.TestCase):
         self.assertIn("Verify the message and attachment digests", ordinary)
         self.assertIn("descriptor alone never establishes readability", ordinary)
 
-        source_rule = SHARED.read_text().split("## Resolve the original source before dispatch", 1)[1]
+        source_rule = SHARED.read_text().split("## Resolve the original source before dispatch", 1)[
+            1
+        ]
         self.assertIn("If the exact local", source_rule)
         self.assertIn("binding is not yet authorized, ask one", source_rule)
         self.assertIn("whether to authorize binding that exact file", source_rule)

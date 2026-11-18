@@ -2,16 +2,15 @@
 
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills/devcrew-review/scripts/create_diff_thread.sh"
 SHAS = {"base": "a" * 40, "start": "b" * 40, "head": "c" * 40}
-FAKE_GLAB = r'''#!/usr/bin/env python3
+FAKE_GLAB = r"""#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
@@ -37,7 +36,7 @@ elif endpoint.endswith("/discussions/discussion-1"):
     print(json.dumps({"notes": [{"id": 1, "position": payload["position"]}]}))
 else:
     raise SystemExit("unexpected API call")
-'''
+"""
 
 
 @unittest.skipUnless(shutil.which("jq"), "jq is required by the helper")
@@ -49,14 +48,27 @@ class PublicationTests(unittest.TestCase):
         fake = self.root / "glab"
         fake.write_text(FAKE_GLAB)
         fake.chmod(0o755)
-        self.env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
-                        GLAB_TEST_DIR=str(self.root))
+        self.env = dict(
+            os.environ,
+            PATH=str(self.root) + os.pathsep + os.environ["PATH"],
+            GLAB_TEST_DIR=str(self.root),
+        )
         self.version = {k + "_commit_sha": v for k, v in SHAS.items()}
 
     def run_helper(self, lines=("--new-line", "37"), omit=None):
         (self.root / "versions.json").write_text(json.dumps([self.version]))
-        args = ["bash", str(SCRIPT), "--mr", "https://gitlab.example.test/group/project/-/merge_requests/42",
-                "--body", "Проверь обработку ошибки.", "--new-path", "src/new.go", "--old-path", "src/old.go"]
+        args = [
+            "bash",
+            str(SCRIPT),
+            "--mr",
+            "https://gitlab.example.test/group/project/-/merge_requests/42",
+            "--body",
+            "Проверь обработку ошибки.",
+            "--new-path",
+            "src/new.go",
+            "--old-path",
+            "src/old.go",
+        ]
         for name, sha in SHAS.items():
             if name != omit:
                 args.extend(["--" + name + "-sha", sha])
@@ -67,9 +79,11 @@ class PublicationTests(unittest.TestCase):
         return [json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []
 
     def test_added_deleted_and_context_positions(self):
-        for flags, new, old in [(("--new-line", "37"), 37, None),
-                                (("--old-line", "35"), None, 35),
-                                (("--new-line", "37", "--old-line", "35"), 37, 35)]:
+        for flags, new, old in [
+            (("--new-line", "37"), 37, None),
+            (("--old-line", "35"), None, 35),
+            (("--new-line", "37", "--old-line", "35"), 37, 35),
+        ]:
             with self.subTest(flags=flags):
                 result = self.run_helper(flags)
                 self.assertEqual(result.returncode, 0, result.stderr)

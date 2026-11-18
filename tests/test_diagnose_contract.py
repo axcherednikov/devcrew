@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIAGNOSE = ROOT / "skills" / "devcrew-diagnose" / "SKILL.md"
 TASK = ROOT / "skills" / "devcrew-task" / "SKILL.md"
@@ -18,8 +17,12 @@ class DiagnoseContract(unittest.TestCase):
         cls.autopilot = AUTOPILOT.read_text()
 
     def test_diagnose_is_separate_investigation_and_task_owns_requested_fix(self):
-        self.assertIn("primary outcome is an evidence-backed root cause, not a production fix", self.diagnose)
-        self.assertIn("If the user asks for a fix and diagnosis is part of completing it, use", self.diagnose)
+        self.assertIn(
+            "primary outcome is an evidence-backed root cause, not a production fix", self.diagnose
+        )
+        self.assertIn(
+            "If the user asks for a fix and diagnosis is part of completing it, use", self.diagnose
+        )
         self.assertIn("ordinary diagnosis is part of this workflow", self.task)
         self.assertIn("test-first → fix → verification", self.task)
 

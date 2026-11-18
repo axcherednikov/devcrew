@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 POLICY = ROOT / "skills/devcrew-task/references/engineering-policy.md"
 TASK = ROOT / "skills/devcrew-task/SKILL.md"
@@ -54,7 +53,9 @@ class MinimalDiffContract(unittest.TestCase):
         self.assertIn("do not mark a reduced-scope task done", self.policy)
 
     def test_marker_requires_ceiling_trigger_and_action_without_backlog(self):
-        self.assertIn("`minimal-diff: <observable ceiling> — <verifiable trigger and\naction>`", self.policy)
+        self.assertIn(
+            "`minimal-diff: <observable ceiling> — <verifiable trigger and\naction>`", self.policy
+        )
         self.assertIn("does not create a backlog item automatically", self.policy)
 
     def test_minimal_diff_uses_existing_test_first_policy(self):

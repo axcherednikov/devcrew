@@ -8,11 +8,11 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import devcrew_phase
 import devcrew_worktree
+import test_capacity as capacity
 import test_phase_candidate_commit as candidate
 import test_phase_review_lifecycle as review
-import test_capacity as capacity
-import devcrew_phase
 
 
 class CurrentCheckoutLifecycle(unittest.TestCase):
@@ -30,13 +30,26 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         self.base = self.git("rev-parse", "HEAD")
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.project), *args],
-                              capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            ["git", "-C", str(self.project), *args], capture_output=True, text=True, check=True
+        ).stdout.strip()
 
     def cli(self, command="task-checkout", operation="create", *extra):
-        return subprocess.run([sys.executable, str(ROOT / "scripts/devcrew.py"), command,
-                               operation, "--project", str(self.project), "--task-id", "T01", *extra],
-                              capture_output=True, text=True)
+        return subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/devcrew.py"),
+                command,
+                operation,
+                "--project",
+                str(self.project),
+                "--task-id",
+                "T01",
+                *extra,
+            ],
+            capture_output=True,
+            text=True,
+        )
 
     def test_default_reuses_current_feature_branch_and_head(self):
         self.git("switch", "-c", "feature")
@@ -54,7 +67,10 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         self.assertEqual(self.git("branch", "--show-current"), "feature")
         self.assertEqual(self.git("rev-parse", "HEAD"), feature_head)
         self.assertTrue((self.project / "feature.txt").exists())
-        self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), before.count("worktree "))
+        self.assertEqual(
+            self.git("worktree", "list", "--porcelain").count("worktree "),
+            before.count("worktree "),
+        )
         self.assertFalse((self.project.parent / ".devcrew-task-worktrees").exists())
         self.assertEqual(self.git("status", "--porcelain"), "")
         self.assertEqual(devcrew_worktree.resolve(self.project, "T01")["state"], "RESOLVED")
@@ -106,13 +122,21 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         self.assertFalse((self.project.parent / ".devcrew-task-worktrees").exists())
 
     def test_explicit_request_creates_worktree_and_retains_authorization(self):
-        result = self.cli("task-checkout", "create", "--worktree-request", "Давай в отдельной ветке пока сделаем задачу")
+        result = self.cli(
+            "task-checkout",
+            "create",
+            "--worktree-request",
+            "Давай в отдельной ветке пока сделаем задачу",
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         receipt = json.loads(result.stdout)
         self.assertNotEqual(receipt["task_worktree_root"], str(self.project.resolve()))
         self.assertEqual(self.git("branch", "--show-current"), "master")
         *_, state = devcrew_worktree.location(self.project, "T01")
-        self.assertEqual(json.loads(state.read_text())["worktree_request"], "Давай в отдельной ветке пока сделаем задачу")
+        self.assertEqual(
+            json.loads(state.read_text())["worktree_request"],
+            "Давай в отдельной ветке пока сделаем задачу",
+        )
 
     def test_legacy_missing_worktree_without_authorization_is_not_recreated(self):
         receipt = devcrew_worktree.create(self.project, "T01", worktree_request="Use a worktree")
@@ -121,7 +145,9 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         del record["worktree_request"]
         state.write_text(json.dumps(record))
         self.git("worktree", "remove", receipt["task_worktree_root"])
-        self.assertEqual(devcrew_worktree.resolve(self.project, "T01")["status"], "UNSAFE_MISSING_WORKTREE")
+        self.assertEqual(
+            devcrew_worktree.resolve(self.project, "T01")["status"], "UNSAFE_MISSING_WORKTREE"
+        )
         self.assertFalse(pathlib.Path(receipt["task_worktree_root"]).exists())
 
     def test_present_legacy_worktree_requires_explicit_authorization_before_use(self):
@@ -134,9 +160,13 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "WORKTREE_REQUEST_REQUIRED"):
             devcrew_worktree.resolve(self.project, "T01")
         self.assertEqual(state.read_bytes(), before)
-        result = self.cli("task-checkout", "resolve", "--worktree-request", "Continue T01 in its worktree")
+        result = self.cli(
+            "task-checkout", "resolve", "--worktree-request", "Continue T01 in its worktree"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(state.read_text())["worktree_request"], "Continue T01 in its worktree")
+        self.assertEqual(
+            json.loads(state.read_text())["worktree_request"], "Continue T01 in its worktree"
+        )
 
     def test_authorized_worktree_also_starts_at_primary_head(self):
         self.git("switch", "-c", "feature")
@@ -144,8 +174,14 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         self.git("add", "tracked.txt")
         self.git("commit", "-qm", "feature")
         feature_head = self.git("rev-parse", "HEAD")
-        result = self.cli("task-checkout", "create", "--worktree-request", "Use a worktree",
-                          "--base-sha", feature_head)
+        result = self.cli(
+            "task-checkout",
+            "create",
+            "--worktree-request",
+            "Use a worktree",
+            "--base-sha",
+            feature_head,
+        )
         self.assertIn("PRIMARY_BASE_MISMATCH", result.stderr)
         self.assertFalse((self.project.parent / ".devcrew-task-worktrees").exists())
         result = self.cli("task-checkout", "create", "--worktree-request", "Use a worktree")
@@ -169,7 +205,9 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         result = self.cli()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.git("branch", "--show-current"), "codex/tasks/T01-2")
-        self.assertEqual(devcrew_worktree.resolve(self.project, "T01")["branch"], "codex/tasks/T01-2")
+        self.assertEqual(
+            devcrew_worktree.resolve(self.project, "T01")["branch"], "codex/tasks/T01-2"
+        )
 
     def test_both_primary_names_branch_from_current_head(self):
         self.git("branch", "main")
@@ -189,7 +227,9 @@ class CurrentCheckoutLifecycle(unittest.TestCase):
         self.git("remote", "add", "origin", "https://example.invalid/repo")
         self.git("update-ref", "refs/remotes/origin/release/stable", self.base)
         self.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/release/stable")
-        result = self.cli("task-checkout", "create", "--worktree-request", "use a separate worktree")
+        result = self.cli(
+            "task-checkout", "create", "--worktree-request", "use a separate worktree"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["created_from_branch"], "release/stable")
 
@@ -281,8 +321,12 @@ class CurrentDirectoryPhaseLifecycle(unittest.TestCase):
         create = devcrew_worktree.create
 
         def register_feature(project, *args, **kwargs):
-            subprocess.run(["git", "-C", str(project), "switch", "-c", "test-fix"],
-                           capture_output=True, text=True, check=True)
+            subprocess.run(
+                ["git", "-C", str(project), "switch", "-c", "test-fix"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
             return create(project, *args, **kwargs)
 
         with mock.patch.object(devcrew_worktree, "create", side_effect=register_feature):
@@ -297,8 +341,15 @@ class CurrentDirectoryPhaseLifecycle(unittest.TestCase):
         committed = fixture.make_candidate()
         fixture.accept_candidate("P1", committed, ".codex/checks/review.json")
         self.assertEqual(fixture.manifest["phases"][0]["accepted_sha"], committed["sha"])
-        fixture.manifest = devcrew_phase.advance_phase(fixture.path, fixture.manifest, fixture.receipt,
-                                                       "P2", fixture.host, fixture.task, fixture.verifier)
+        fixture.manifest = devcrew_phase.advance_phase(
+            fixture.path,
+            fixture.manifest,
+            fixture.receipt,
+            "P2",
+            fixture.host,
+            fixture.task,
+            fixture.verifier,
+        )
         self.assertEqual(fixture.manifest["phases"][1]["base_sha"], committed["sha"])
         next_candidate = fixture.make_candidate("P2")
         self.assertEqual(next_candidate["base"], committed["sha"])
@@ -308,25 +359,57 @@ class CurrentDirectoryPhaseLifecycle(unittest.TestCase):
     def test_local_fix_preserves_current_checkout_mode(self):
         fixture = self.fixture(review.PhaseReviewLifecycleTests)
         rejected = fixture.make_candidate()
-        devcrew_phase.begin_review(fixture.path, fixture.manifest, fixture.receipt,
-                                   fixture.host, fixture.task, "P1", fixture.verifier)
+        devcrew_phase.begin_review(
+            fixture.path,
+            fixture.manifest,
+            fixture.receipt,
+            fixture.host,
+            fixture.task,
+            "P1",
+            fixture.verifier,
+        )
         fixture.receipt = devcrew_worktree.resolve(fixture.host, "T01")
         fixture.manifest = devcrew_phase.load_for_resume(fixture.path, fixture.receipt)
-        report = {"TASK_ID": "T01", "PHASE_ID": "P1", "BASE_SHA": fixture.base,
-                  "TARGET_SHA": rejected["sha"], "VERDICT": "FAIL",
-                  "FINDINGS": [{"CLASSIFICATION": "LOCAL_FIX", "SUMMARY": "repair behavior",
-                                "EVIDENCE": ["one.txt"]}]}
+        report = {
+            "TASK_ID": "T01",
+            "PHASE_ID": "P1",
+            "BASE_SHA": fixture.base,
+            "TARGET_SHA": rejected["sha"],
+            "VERDICT": "FAIL",
+            "FINDINGS": [
+                {
+                    "CLASSIFICATION": "LOCAL_FIX",
+                    "SUMMARY": "repair behavior",
+                    "EVIDENCE": ["one.txt"],
+                }
+            ],
+        }
         report.update(fixture.routed_reviewer_fields(report))
         reference = ".codex/checks/review-failed.json"
         report_path = fixture.host / reference
         report_path.write_text(json.dumps(report))
-        devcrew_phase.submit_review(fixture.path, fixture.manifest, fixture.receipt,
-                                    fixture.host, fixture.task, report, fixture.verifier,
-                                    reference, report_path.read_bytes())
+        devcrew_phase.submit_review(
+            fixture.path,
+            fixture.manifest,
+            fixture.receipt,
+            fixture.host,
+            fixture.task,
+            report,
+            fixture.verifier,
+            reference,
+            report_path.read_bytes(),
+        )
         fixture.receipt = devcrew_worktree.resolve(fixture.host, "T01")
         fixture.manifest = devcrew_phase.load_for_resume(fixture.path, fixture.receipt)
-        devcrew_phase.start_local_fix(fixture.path, fixture.manifest, fixture.receipt,
-                                      fixture.host, fixture.task, "P1", fixture.verifier)
+        devcrew_phase.start_local_fix(
+            fixture.path,
+            fixture.manifest,
+            fixture.receipt,
+            fixture.host,
+            fixture.task,
+            "P1",
+            fixture.verifier,
+        )
         fixture.receipt = devcrew_worktree.resolve(fixture.host, "T01")
         fixture.manifest = devcrew_phase.load_for_resume(fixture.path, fixture.receipt)
         replacement = fixture.make_candidate(candidate_text="corrected candidate\n")
@@ -347,12 +430,22 @@ class CurrentDirectoryPhaseLifecycle(unittest.TestCase):
                     recover = devcrew_phase.recover_local_fix
                 else:
                     _, _, _, replacement, planner_id = fixture._systemic_replan_fixture()
-                    with mock.patch.object(devcrew_worktree, "advance_expected_head",
-                                           side_effect=ValueError("simulated interruption")):
+                    with mock.patch.object(
+                        devcrew_worktree,
+                        "advance_expected_head",
+                        side_effect=ValueError("simulated interruption"),
+                    ):
                         with self.assertRaises(devcrew_phase.PhaseError):
                             devcrew_phase.complete_systemic_replan(
-                                fixture.path, fixture.manifest, fixture.receipt, fixture.host,
-                                fixture.task, replacement, planner_id, fixture.verifier)
+                                fixture.path,
+                                fixture.manifest,
+                                fixture.receipt,
+                                fixture.host,
+                                fixture.task,
+                                replacement,
+                                planner_id,
+                                fixture.verifier,
+                            )
                     recover = devcrew_phase.recover_systemic_replan
                 *_, state = devcrew_worktree.location(fixture.host, "T01")
                 record = json.loads(state.read_text())

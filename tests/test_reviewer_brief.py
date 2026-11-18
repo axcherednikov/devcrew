@@ -1,9 +1,9 @@
 import copy
 import pathlib
 import sys
+import tempfile
 import tomllib
 import unittest
-import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 import devcrew_context
@@ -14,14 +14,21 @@ from test_task_phases import plan
 class ReviewerBriefTests(unittest.TestCase):
     def setUp(self):
         self.manifest = plan("MULTI_PHASE")
-        self.receipt = {"owner": "DEVCREW", "state": "RESOLVED", "repository_id": "repo",
-                        "task_id": "T01", "task_worktree_root": "/tmp/T01",
-                        "branch": "codex/tasks/T01", "expected_head": "a" * 40}
+        self.receipt = {
+            "owner": "DEVCREW",
+            "state": "RESOLVED",
+            "repository_id": "repo",
+            "task_id": "T01",
+            "task_worktree_root": "/tmp/T01",
+            "branch": "codex/tasks/T01",
+            "expected_head": "a" * 40,
+        }
 
     def review_target(self, manifest):
         value = copy.deepcopy(manifest)
-        value["phases"][0].update(status="COMMITTED", candidate_commit={
-            "base": "a" * 40, "sha": "b" * 40})
+        value["phases"][0].update(
+            status="COMMITTED", candidate_commit={"base": "a" * 40, "sha": "b" * 40}
+        )
         return devcrew_phase.review_target(value, "P1")
 
     def test_executor_and_reviewer_receive_same_current_phase_meaning(self):
@@ -34,10 +41,17 @@ class ReviewerBriefTests(unittest.TestCase):
         self.assertEqual(executor["main_scenario"], scenario)
         self.assertEqual(reviewer["MAIN_SCENARIO"], executor["main_scenario"])
         self.assertEqual(reviewer["GOAL"], executor["goal"])
-        for key in ("ACCEPTANCE", "VERIFICATION", "OWNED_SCOPE", "KNOWN_CONTRACTS", "DO_NOT_CHANGE"):
+        for key in (
+            "ACCEPTANCE",
+            "VERIFICATION",
+            "OWNED_SCOPE",
+            "KNOWN_CONTRACTS",
+            "DO_NOT_CHANGE",
+        ):
             self.assertEqual(reviewer[key], executor[key.lower()])
         message = devcrew_context._reviewer_contract(
-            "T01", "P1", "a" * 40, "b" * 40, reviewer, ["checks/health.json"])
+            "T01", "P1", "a" * 40, "b" * 40, reviewer, ["checks/health.json"]
+        )
         self.assertIn(scenario, message)
         self.assertNotIn("Later readiness scenario", message)
 
@@ -48,7 +62,8 @@ class ReviewerBriefTests(unittest.TestCase):
         self.assertIsNone(executor["main_scenario"])
         self.assertIsNone(reviewer["MAIN_SCENARIO"])
         devcrew_context._reviewer_contract(
-            "T01", "P1", "a" * 40, "b" * 40, reviewer, ["checks/health.json"])
+            "T01", "P1", "a" * 40, "b" * 40, reviewer, ["checks/health.json"]
+        )
         self.assertNotIn("main_scenario", validated["phases"][0])
 
     def test_present_scenario_must_be_nonempty_text(self):
@@ -61,14 +76,17 @@ class ReviewerBriefTests(unittest.TestCase):
 
     def test_reviewer_rejects_invalid_goal_or_scenario(self):
         target = self.review_target(self.manifest)
-        for field, invalids in (("GOAL", (None, "", "  ", [])),
-                                ("MAIN_SCENARIO", ("", "  ", 1, []))):
+        for field, invalids in (
+            ("GOAL", (None, "", "  ", [])),
+            ("MAIN_SCENARIO", ("", "  ", 1, [])),
+        ):
             for invalid in invalids:
                 with self.subTest(field=field, value=invalid):
                     altered = dict(target, **{field: invalid})
                     with self.assertRaises(ValueError):
                         devcrew_context._reviewer_contract(
-                            "T01", "P1", "a" * 40, "b" * 40, altered, ["checks/health.json"])
+                            "T01", "P1", "a" * 40, "b" * 40, altered, ["checks/health.json"]
+                        )
 
     def test_negative_evidence_guidance_keeps_static_findings_and_risk_based_mutation(self):
         root = pathlib.Path(__file__).resolve().parents[1]
@@ -95,30 +113,49 @@ class ReviewerBriefTests(unittest.TestCase):
             manifest["semantic_contract"] = {"capabilities": ["health"]}
             manifest["phases"] = [manifest["phases"][0]]
             manifest["schema_version"] = 2
-            source = devcrew_phase.bind_intent_source(root, receipt, {
-                "mode": "unavailable", "source_type": "user_prompt", "origin": "request",
-                "reason": "prompt capture unavailable"})
+            source = devcrew_phase.bind_intent_source(
+                root,
+                receipt,
+                {
+                    "mode": "unavailable",
+                    "source_type": "user_prompt",
+                    "origin": "request",
+                    "reason": "prompt capture unavailable",
+                },
+            )
             manifest["original_intent"] = {
-                "sources": [source], "requirements": [], "decisions": [],
+                "sources": [source],
+                "requirements": [],
+                "decisions": [],
                 "planning_assessment": {"status": "NOT_ASSESSED", "assessment": None},
-                "task_acceptance": {"status": "NOT_ASSESSED", "review": None}}
-            manifest["phases"][0].update(status="COMMITTED", candidate_commit={"base": "a" * 40, "sha": "b" * 40})
+                "task_acceptance": {"status": "NOT_ASSESSED", "review": None},
+            }
+            manifest["phases"][0].update(
+                status="COMMITTED", candidate_commit={"base": "a" * 40, "sha": "b" * 40}
+            )
             target = devcrew_phase.review_target(manifest, "P1")
             intent = target["ORIGINAL_INTENT"]
             self.assertEqual(intent["plan_sha256"], devcrew_phase.intent_plan_digest(manifest))
             self.assertEqual(intent["sources"], [source])
             self.assertEqual(intent["phase_id"], "P1")
             message = devcrew_context._reviewer_contract(
-                "T01", "P1", "a" * 40, "b" * 40, target, ["checks/health.json"])
+                "T01", "P1", "a" * 40, "b" * 40, target, ["checks/health.json"]
+            )
             self.assertIn("ORIGINAL_INTENT", message)
 
     def test_review_workflow_and_role_require_four_evidenced_questions(self):
         root = pathlib.Path(__file__).resolve().parents[1]
         workflow = (root / "skills/devcrew-review/SKILL.md").read_text()
-        role = tomllib.loads((root / "skills/devcrew-setup/assets/agents/reviewer-agent.toml").read_text())
+        role = tomllib.loads(
+            (root / "skills/devcrew-setup/assets/agents/reviewer-agent.toml").read_text()
+        )
         for instructions in (workflow, role["developer_instructions"]):
-            for question in ("Are all acceptance criteria met?", "Does the main scenario work?",
-                             "Which critical edge cases were missed?", "Do the tests demonstrate this?"):
+            for question in (
+                "Are all acceptance criteria met?",
+                "Does the main scenario work?",
+                "Which critical edge cases were missed?",
+                "Do the tests demonstrate this?",
+            ):
                 with self.subTest(question=question):
                     self.assertIn(question, instructions)
             self.assertIn("with evidence", instructions)

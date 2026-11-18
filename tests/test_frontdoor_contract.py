@@ -2,7 +2,6 @@ import json
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills" / "devcrew"
 
@@ -20,10 +19,19 @@ class FrontDoorContract(unittest.TestCase):
         self.assertTrue((SKILLS / "agents/openai.yaml").is_file())
         self.assertTrue(self.skill.startswith("---\nname: devcrew\n"))
         for name in (
-            "devcrew-task", "devcrew-autopilot", "devcrew-brief", "devcrew-review",
-            "devcrew-diagnose", "devcrew-architecture", "devcrew-product-onboard",
-            "devcrew-session", "devcrew-coordinate", "devcrew-setup", "devcrew-skill-doctor",
-            "devcrew-small-talk", "devcrew-handoff",
+            "devcrew-task",
+            "devcrew-autopilot",
+            "devcrew-brief",
+            "devcrew-review",
+            "devcrew-diagnose",
+            "devcrew-architecture",
+            "devcrew-product-onboard",
+            "devcrew-session",
+            "devcrew-coordinate",
+            "devcrew-setup",
+            "devcrew-skill-doctor",
+            "devcrew-small-talk",
+            "devcrew-handoff",
         ):
             with self.subTest(skill=name):
                 self.assertTrue((ROOT / "skills" / name / "SKILL.md").is_file())
@@ -36,7 +44,17 @@ class FrontDoorContract(unittest.TestCase):
         self.assertIn("LARGE", self.routing)
         self.assertIn("Prompt length and risk alone do not justify autopilot", self.routing)
         self.assertIn("bounded model at low effort", self.routing)
-        for intent in ("IMPLEMENT", "DIAGNOSE", "REVIEW", "HANDOFF", "ARCHITECTURE", "BRIEF", "PRODUCT_ONBOARD", "SESSION_CONTROL", "READ_ONLY_ANALYSIS"):
+        for intent in (
+            "IMPLEMENT",
+            "DIAGNOSE",
+            "REVIEW",
+            "HANDOFF",
+            "ARCHITECTURE",
+            "BRIEF",
+            "PRODUCT_ONBOARD",
+            "SESSION_CONTROL",
+            "READ_ONLY_ANALYSIS",
+        ):
             self.assertIn(f"`{intent}`", self.routing)
         self.assertIn("POLICY_CANDIDATE", self.routing)
 
@@ -49,7 +67,12 @@ class FrontDoorContract(unittest.TestCase):
         self.assertIn("WORKSPACE_AMBIGUOUS", self.sources)
 
     def test_handoff_is_bounded_and_prevents_loops(self):
-        for field in ("ORIGINAL_INTENT", "SOURCE_REFERENCE", "ACCEPTANCE_CRITERIA", "RELEVANT_EVIDENCE_REFERENCES"):
+        for field in (
+            "ORIGINAL_INTENT",
+            "SOURCE_REFERENCE",
+            "ACCEPTANCE_CRITERIA",
+            "RELEVANT_EVIDENCE_REFERENCES",
+        ):
             self.assertIn(field, self.handoff)
         self.assertIn("full transcript", self.handoff)
         self.assertIn("router → owner → router → owner", self.handoff)
@@ -62,13 +85,27 @@ class FrontDoorContract(unittest.TestCase):
 
     def test_routing_evals_cover_positive_and_negative_cases(self):
         for case in (
-            "router-tracker-implement", "router-tracker-status", "router-fix-unknown-cause",
-            "router-root-cause-only", "router-existing-pr-review", "router-architecture",
-            "router-bounded-task", "router-coordinated-epic", "router-brief-unresolved",
-            "router-grill", "router-product-onboard", "router-simple-read-only",
-            "router-explicit-override", "router-source-unavailable", "router-outcome-tricky",
-            "router-session-resume", "router-design-plus-implementation", "router-handoff-qa",
-            "router-handoff-client", "router-handoff-customer", "router-handoff-all",
+            "router-tracker-implement",
+            "router-tracker-status",
+            "router-fix-unknown-cause",
+            "router-root-cause-only",
+            "router-existing-pr-review",
+            "router-architecture",
+            "router-bounded-task",
+            "router-coordinated-epic",
+            "router-brief-unresolved",
+            "router-grill",
+            "router-product-onboard",
+            "router-simple-read-only",
+            "router-explicit-override",
+            "router-source-unavailable",
+            "router-outcome-tricky",
+            "router-session-resume",
+            "router-design-plus-implementation",
+            "router-handoff-qa",
+            "router-handoff-client",
+            "router-handoff-customer",
+            "router-handoff-all",
             "router-implement-then-handoff",
         ):
             with self.subTest(case=case):

@@ -2,7 +2,6 @@ import pathlib
 import tomllib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROTOCOL = ROOT / "skills" / "devcrew-task" / "references" / "replan-protocol.md"
 
@@ -17,9 +16,17 @@ class ReplanContract(unittest.TestCase):
         cls.brief = (ROOT / "skills/devcrew-brief/SKILL.md").read_text()
 
     def test_executor_replan_has_required_evidence_and_cannot_change_acceptance(self):
-        for field in ("PLAN_ASSUMPTION", "OBSERVED_EVIDENCE", "CONFLICT",
-                      "PROPOSED_ALTERNATIVE", "AFFECTED_SCOPE", "UNAFFECTED_SCOPE",
-                      "ACCEPTANCE_IMPACT", "OWNER_DECISION_NEEDED", "EVIDENCE_REFS"):
+        for field in (
+            "PLAN_ASSUMPTION",
+            "OBSERVED_EVIDENCE",
+            "CONFLICT",
+            "PROPOSED_ALTERNATIVE",
+            "AFFECTED_SCOPE",
+            "UNAFFECTED_SCOPE",
+            "ACCEPTANCE_IMPACT",
+            "OWNER_DECISION_NEEDED",
+            "EVIDENCE_REFS",
+        ):
             with self.subTest(field=field):
                 self.assertIn(field, self.protocol)
         self.assertIn("ACCEPTANCE_IMPACT: NO", self.protocol)
@@ -41,11 +48,22 @@ class ReplanContract(unittest.TestCase):
         for route in ("PLAN_INSUFFICIENT", "TASK_TOO_LARGE", "LOCAL_IMPLEMENTATION_DIFFICULTY"):
             self.assertIn(route, self.protocol)
         self.assertIn("bounded implementation slices", self.protocol)
-        self.assertIn("Independent first `LOCAL_FIX` findings can remain executor work within one bounded correction", self.protocol)
+        self.assertIn(
+            "Independent first `LOCAL_FIX` findings can remain executor work within one bounded correction",
+            self.protocol,
+        )
         self.assertIn("A shared invalid seam is `SYSTEMIC_REPLAN`", self.protocol)
-        self.assertIn("recurrence following a correction is not by itself a loop or an owner question", self.protocol)
-        self.assertIn("Further confirmed technical errors may be corrected autonomously", self.protocol)
-        self.assertIn("REPLAN_REQUEST` only if continuing requires a material technical decision", self.protocol)
+        self.assertIn(
+            "recurrence following a correction is not by itself a loop or an owner question",
+            self.protocol,
+        )
+        self.assertIn(
+            "Further confirmed technical errors may be corrected autonomously", self.protocol
+        )
+        self.assertIn(
+            "REPLAN_REQUEST` only if continuing requires a material technical decision",
+            self.protocol,
+        )
 
     def test_coordinator_routes_local_technical_and_owner_decisions(self):
         for route in ("LOCAL_FIX", "TECHNICAL_REPLAN", "OWNER_DECISION_REQUIRED"):
@@ -66,8 +84,13 @@ class ReplanContract(unittest.TestCase):
         self.assertIn("devcrew-task` AGENT EXECUTION", self.protocol)
         self.assertIn("DIRECT path uses ordinary host reasoning", self.protocol)
         self.assertIn("does not create an artificial", self.protocol)
-        for phrase in ("REPLAN_REQUEST", "APPROVED_REPLAN", "KEEP_CURRENT_PLAN",
-                       "DAG must not advance", "no commit"):
+        for phrase in (
+            "REPLAN_REQUEST",
+            "APPROVED_REPLAN",
+            "KEEP_CURRENT_PLAN",
+            "DAG must not advance",
+            "no commit",
+        ):
             self.assertIn(phrase, self.autopilot)
 
     def test_review_classifies_root_cause_read_only_and_owner_questions_use_brief(self):
@@ -79,10 +102,16 @@ class ReplanContract(unittest.TestCase):
         self.assertIn("SYSTEMIC_REPLAN", self.review)
 
     def test_existing_safety_cost_and_sequential_execution_boundaries_remain(self):
-        for invariant in ("safety rules", "confirmed owner/product decisions",
-                          "scope authorization", "no decision-agent call or extra context cost",
-                          "does not add parallel autopilot", "task fan-out",
-                          "worktree waves", "new general model-routing strategy"):
+        for invariant in (
+            "safety rules",
+            "confirmed owner/product decisions",
+            "scope authorization",
+            "no decision-agent call or extra context cost",
+            "does not add parallel autopilot",
+            "task fan-out",
+            "worktree waves",
+            "new general model-routing strategy",
+        ):
             with self.subTest(invariant=invariant):
                 self.assertIn(invariant, self.protocol)
         self.assertIn("one task at a time", self.autopilot)
@@ -96,9 +125,15 @@ class ReplanContract(unittest.TestCase):
 
     def test_routing_eval_covers_requested_executor_review_and_planner_scenarios(self):
         evals = (ROOT / "tests/routing-evals.md").read_text()
-        for case in ("replan-local-fix", "replan-invalid-assumption",
-                     "replan-owner-outcomes", "review-independent-findings",
-                     "review-wrong-seam", "replan-keep-plan", "replan-approved-alternative"):
+        for case in (
+            "replan-local-fix",
+            "replan-invalid-assumption",
+            "replan-owner-outcomes",
+            "review-independent-findings",
+            "review-wrong-seam",
+            "replan-keep-plan",
+            "replan-approved-alternative",
+        ):
             self.assertIn(case, evals)
 
 

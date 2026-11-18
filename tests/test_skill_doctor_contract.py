@@ -1,6 +1,5 @@
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCTOR = ROOT / "skills/devcrew-skill-doctor/SKILL.md"
@@ -19,16 +18,33 @@ class SkillDoctorContractTests(unittest.TestCase):
 
     def test_explicit_skill_maintenance_routes_to_doctor(self):
         for phrase in (
-            "audit", "troubleshoot", "optimize", "repair", "migrate",
-            "devcrew-skill-doctor", "devcrew-task and diagnose conflict",
+            "audit",
+            "troubleshoot",
+            "optimize",
+            "repair",
+            "migrate",
+            "devcrew-skill-doctor",
+            "devcrew-task and diagnose conflict",
             "Optimize routing of my skills",
         ):
             self.assertIn(phrase, self.doctor + self.autopilot)
 
     def test_scope_boundaries_route_application_work_elsewhere(self):
-        for skill in ("devcrew-review", "devcrew-architecture", "devcrew-diagnose", "devcrew-task", "devcrew-setup"):
+        for skill in (
+            "devcrew-review",
+            "devcrew-architecture",
+            "devcrew-diagnose",
+            "devcrew-task",
+            "devcrew-setup",
+        ):
             self.assertIn(skill, self.doctor)
-        for case in ("skill-negative-boundaries", "skill-audit", "skill-routing-conflict", "skill-stale-helper", "skill-duplicated-policy"):
+        for case in (
+            "skill-negative-boundaries",
+            "skill-audit",
+            "skill-routing-conflict",
+            "skill-stale-helper",
+            "skill-duplicated-policy",
+        ):
             self.assertIn(case, self.evals)
 
     def test_audit_is_read_only_and_repair_requires_explicit_intent(self):

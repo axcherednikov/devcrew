@@ -1,9 +1,10 @@
 """Cross-platform operations for the plugin's file and lock contracts."""
+
 import errno
 import os
-from pathlib import Path
 import stat
 import time
+from pathlib import Path
 
 try:
     from ntpath import isreserved as _is_reserved_name
@@ -16,14 +17,19 @@ except ImportError:  # Python 3.11 and 3.12
 
 if os.name == "nt":
     import msvcrt
+
     import devcrew_winfiles
 
 
 def windows_safe_parts(parts):
     """Reject alternate data streams, DOS devices and names that alias other entries."""
-    return all(part and not any(ord(c) < 32 or c in '<>:"/\\|?*' for c in part)
-               and not part.endswith((" ", "."))
-               and not _is_reserved_name(part) for part in parts)
+    return all(
+        part
+        and not any(ord(c) < 32 or c in '<>:"/\\|?*' for c in part)
+        and not part.endswith((" ", "."))
+        and not _is_reserved_name(part)
+        for part in parts
+    )
 
 
 def unsafe_parts(parts):
@@ -53,13 +59,14 @@ def open_regular(path, flags, mode=0o600, *, exclusive_writer=False):
 def lock(fd, *, wait=True):
     if os.name != "nt":
         import fcntl
+
         fcntl.flock(fd, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
         return
     # Lock a byte beyond all resource metadata. The data remains readable for
     # status inspection while Windows enforces the inter-process byte-range lock.
     position = os.lseek(fd, 0, os.SEEK_CUR)
     try:
-        os.lseek(fd, 0x7fffffff, os.SEEK_SET)
+        os.lseek(fd, 0x7FFFFFFF, os.SEEK_SET)
         while True:
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
@@ -77,11 +84,12 @@ def lock(fd, *, wait=True):
 def unlock(fd):
     if os.name != "nt":
         import fcntl
+
         fcntl.flock(fd, fcntl.LOCK_UN)
         return
     position = os.lseek(fd, 0, os.SEEK_CUR)
     try:
-        os.lseek(fd, 0x7fffffff, os.SEEK_SET)
+        os.lseek(fd, 0x7FFFFFFF, os.SEEK_SET)
         msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
     finally:
         os.lseek(fd, position, os.SEEK_SET)

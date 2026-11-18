@@ -1,11 +1,12 @@
 """Windows handle and ACL operations for private DevCrew files (standard library)."""
+
 import ctypes as c
-from ctypes import wintypes as w
-from contextlib import contextmanager
-from functools import lru_cache
 import msvcrt
 import os
 import stat
+from contextlib import contextmanager
+from ctypes import wintypes as w
+from functools import lru_cache
 
 
 def _bind(dll, name, result, *args):
@@ -20,7 +21,9 @@ _sec = c.WinDLL("advapi32", use_last_error=True)
 ptr = c.c_void_p
 pp = c.POINTER(ptr)
 dword_p = c.POINTER(w.DWORD)
-_create = _bind(_kernel, "CreateFileW", w.HANDLE, w.LPCWSTR, w.DWORD, w.DWORD, ptr, w.DWORD, w.DWORD, w.HANDLE)
+_create = _bind(
+    _kernel, "CreateFileW", w.HANDLE, w.LPCWSTR, w.DWORD, w.DWORD, ptr, w.DWORD, w.DWORD, w.HANDLE
+)
 _reopen = _bind(_kernel, "ReOpenFile", w.HANDLE, w.HANDLE, w.DWORD, w.DWORD, w.DWORD)
 _close = _bind(_kernel, "CloseHandle", w.BOOL, w.HANDLE)
 _free = _bind(_kernel, "LocalFree", ptr, ptr)
@@ -29,8 +32,18 @@ _get_attr = _bind(_kernel, "GetFileInformationByHandleEx", w.BOOL, w.HANDLE, c.c
 _open_token = _bind(_sec, "OpenProcessToken", w.BOOL, w.HANDLE, w.DWORD, pp)
 _token_info = _bind(_sec, "GetTokenInformation", w.BOOL, w.HANDLE, c.c_int, ptr, w.DWORD, dword_p)
 _sid_string = _bind(_sec, "ConvertSidToStringSidW", w.BOOL, ptr, pp)
-_from_sddl = _bind(_sec, "ConvertStringSecurityDescriptorToSecurityDescriptorW", w.BOOL, w.LPCWSTR, w.DWORD, pp, dword_p)
-_get_dacl = _bind(_sec, "GetSecurityDescriptorDacl", w.BOOL, ptr, c.POINTER(w.BOOL), pp, c.POINTER(w.BOOL))
+_from_sddl = _bind(
+    _sec,
+    "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+    w.BOOL,
+    w.LPCWSTR,
+    w.DWORD,
+    pp,
+    dword_p,
+)
+_get_dacl = _bind(
+    _sec, "GetSecurityDescriptorDacl", w.BOOL, ptr, c.POINTER(w.BOOL), pp, c.POINTER(w.BOOL)
+)
 _get_sd = _bind(_sec, "GetSecurityInfo", w.DWORD, w.HANDLE, c.c_int, w.DWORD, pp, pp, pp, pp, pp)
 _set_sd = _bind(_sec, "SetSecurityInfo", w.DWORD, w.HANDLE, c.c_int, w.DWORD, ptr, ptr, ptr, ptr)
 _get_ace = _bind(_sec, "GetAce", w.BOOL, ptr, w.DWORD, pp)
@@ -49,7 +62,9 @@ def _require(ok):
 def _checked_handle(path, access, disposition=_OPEN_EXISTING, *, share=7):
     # FILE_FLAG_OPEN_REPARSE_POINT opens the link itself. Inspect that same handle
     # before using it, even if the final directory entry changed during the open.
-    handle = _create(os.fspath(path), access, share, None, disposition, 0x00200000 | 0x02000000, None)
+    handle = _create(
+        os.fspath(path), access, share, None, disposition, 0x00200000 | 0x02000000, None
+    )
     if handle == _INVALID_HANDLE:
         raise c.WinError(c.get_last_error())
     try:
@@ -65,7 +80,9 @@ def _checked_handle(path, access, disposition=_OPEN_EXISTING, *, share=7):
 
 def open_regular(path, flags, *, exclusive_writer=False):
     from pathlib import Path
+
     from devcrew_fs import windows_safe_parts
+
     name = Path(path)
     if not windows_safe_parts(part for part in name.parts if part != name.anchor):
         raise PermissionError(f"reserved Windows name: {path}")
@@ -74,16 +91,21 @@ def open_regular(path, flags, *, exclusive_writer=False):
         access |= 0x40000000
     elif flags & os.O_WRONLY:
         access = 0x40000000
-    disposition = _CREATE_NEW if flags & os.O_EXCL else _OPEN_ALWAYS if flags & os.O_CREAT else _OPEN_EXISTING
+    disposition = (
+        _CREATE_NEW if flags & os.O_EXCL else _OPEN_ALWAYS if flags & os.O_CREAT else _OPEN_EXISTING
+    )
     try:
         handle = _checked_handle(path, access, disposition, share=1 if exclusive_writer else 7)
     except OSError as exc:
         if exclusive_writer and exc.winerror == 32:  # ERROR_SHARING_VIOLATION
             import errno
+
             raise BlockingIOError(errno.EWOULDBLOCK, "resource is locked") from exc
         raise
     try:
-        return msvcrt.open_osfhandle(handle, os.O_BINARY | (flags & (os.O_RDWR | os.O_WRONLY | os.O_APPEND)))
+        return msvcrt.open_osfhandle(
+            handle, os.O_BINARY | (flags & (os.O_RDWR | os.O_WRONLY | os.O_APPEND))
+        )
     except BaseException:
         _close(handle)
         raise
@@ -160,7 +182,9 @@ def trusted_access(path, *, writable_only=False, fd=None):
     """Reject a foreign owner or ACE granting untrusted access to protected data."""
     with _metadata_handle(path, fd=fd) as handle:
         owner, acl, sd = ptr(), ptr(), ptr()
-        status = _get_sd(handle, 1, _OWNER | _DACL, c.byref(owner), None, c.byref(acl), None, c.byref(sd))
+        status = _get_sd(
+            handle, 1, _OWNER | _DACL, c.byref(owner), None, c.byref(acl), None, c.byref(sd)
+        )
         if status:
             raise c.WinError(status)
         try:

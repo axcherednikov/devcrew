@@ -4,15 +4,16 @@ Go/PHPUnit/Jest executables are deterministic protocol fixtures; installing thes
 frameworks is not required to test DevCrew's argv/evidence contract. Python uses
 the real unittest runner.
 """
+
 import json
 import pathlib
 import subprocess
 import sys
-import unittest
 import tempfile
+import unittest
 
-import test_phase_review_lifecycle as lifecycle
 import devcrew_phase
+import test_phase_review_lifecycle as lifecycle
 from devcrew_test_helpers import run_check
 
 
@@ -26,43 +27,72 @@ class ProjectSuiteTests(unittest.TestCase):
         if stack == "unittest":
             argv = [sys.executable, "-B", "-m", "unittest", "discover", "-s", "tests"]
         else:
-            args = {"go": ["test", "./..."], "phpunit": ["--configuration", "phpunit.xml"],
-                    "jest": ["--runInBand", "--ci"]}[stack]
+            args = {
+                "go": ["test", "./..."],
+                "phpunit": ["--configuration", "phpunit.xml"],
+                "jest": ["--runInBand", "--ci"],
+            }[stack]
             runner = pathlib.Path(f.temp.name) / stack
             runner.write_text(
                 f"#!{sys.executable}\nimport sys\nfrom pathlib import Path\n"
                 f"assert sys.argv[1:] == {args!r}\n"
                 "assert Path('one.txt').read_text() != 'fail\\n'\n"
-                f"print({stack!r} + ' project suite passed')\n")
+                f"print({stack!r} + ' project suite passed')\n"
+            )
             runner.chmod(0o755)
             argv = [str(runner), *args]
         phase = f.manifest["phases"][0]
         phase["verification"] = [f"required {stack} project suite"]
-        phase["verification_bindings"] = [{"index": 0, "verification": phase["verification"][0], "argv": argv}]
+        phase["verification_bindings"] = [
+            {"index": 0, "verification": phase["verification"][0], "argv": argv}
+        ]
         if multiple:
             phase["verification"].append("required additional project check")
-            phase["verification_bindings"].append({"index": 1, "verification": phase["verification"][1],
-                "argv": [sys.executable, "-B", "-c", "from pathlib import Path; assert Path('one.txt').is_file()"]})
+            phase["verification_bindings"].append(
+                {
+                    "index": 1,
+                    "verification": phase["verification"][1],
+                    "argv": [
+                        sys.executable,
+                        "-B",
+                        "-c",
+                        "from pathlib import Path; assert Path('one.txt').is_file()",
+                    ],
+                }
+            )
         f.manifest = devcrew_phase.save_manifest(f.path, f.manifest, f.receipt)
         return f, argv
 
     def record(self, f, argv):
         record_path, payload = run_check(
-            f.host, execution_root=f.task, task_id="T01", name="project-suite", command=argv)
+            f.host, execution_root=f.task, task_id="T01", name="project-suite", command=argv
+        )
         return payload, str(record_path)
 
     def test_run_check_helper_matches_cli_for_success_and_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = pathlib.Path(temporary).resolve()
             for command, expected_status, expected_exit in (
-                    ([sys.executable, "-c", "print('ok')"], "passed", 0),
-                    ([sys.executable, "-c", "raise SystemExit(7)"], "failed", 7)):
+                ([sys.executable, "-c", "print('ok')"], "passed", 0),
+                ([sys.executable, "-c", "raise SystemExit(7)"], "failed", 7),
+            ):
                 with self.subTest(expected_status=expected_status):
                     api_record, api = run_check(project, name="parity", command=command)
                     cli = subprocess.run(
-                        [sys.executable, str(lifecycle.ROOT / "scripts/devcrew.py"), "run-check",
-                         "--project", str(project), "--name", "parity", "--", *command],
-                        capture_output=True, text=True)
+                        [
+                            sys.executable,
+                            str(lifecycle.ROOT / "scripts/devcrew.py"),
+                            "run-check",
+                            "--project",
+                            str(project),
+                            "--name",
+                            "parity",
+                            "--",
+                            *command,
+                        ],
+                        capture_output=True,
+                        text=True,
+                    )
                     cli_record = pathlib.Path(cli.stdout.splitlines()[0])
                     cli_payload = json.loads(cli.stdout.splitlines()[1])
                     self.assertEqual(api["status"], expected_status)
@@ -71,12 +101,15 @@ class ProjectSuiteTests(unittest.TestCase):
                     self.assertEqual(cli_payload["status"], api["status"])
                     self.assertEqual(cli_payload["exit_code"], api["exit_code"])
                     self.assertEqual(api["command"], json.loads(cli_record.read_text())["command"])
-                    self.assertEqual((api_record.parent / api["log"]).read_bytes(),
-                                     (cli_record.parent / cli_payload["log"]).read_bytes())
+                    self.assertEqual(
+                        (api_record.parent / api["log"]).read_bytes(),
+                        (cli_record.parent / cli_payload["log"]).read_bytes(),
+                    )
 
     def accept(self, f, records):
-        return devcrew_phase.accept_review(f.path, f.manifest, f.receipt, f.host, f.task,
-                                          "P1", f.verifier, records)
+        return devcrew_phase.accept_review(
+            f.path, f.manifest, f.receipt, f.host, f.task, "P1", f.verifier, records
+        )
 
     def test_each_stack_can_commit_accept_and_resume_with_all_approved_checks(self):
         for stack in self.stacks:
@@ -92,7 +125,10 @@ class ProjectSuiteTests(unittest.TestCase):
                 self.assertEqual(self.accept(f, records)["status"], "PHASE_ACCEPTED")
                 saved = json.loads(f.path.read_text())
                 self.assertEqual(len(saved["phases"][0]["acceptance_evidence"]), 2)
-                self.assertEqual(devcrew_phase.resume(saved, f.host, f.task, f.verifier)["status"], "PHASE_ACCEPTED")
+                self.assertEqual(
+                    devcrew_phase.resume(saved, f.host, f.task, f.verifier)["status"],
+                    "PHASE_ACCEPTED",
+                )
 
     def test_each_stack_rejects_successful_substitution_and_missing_check_at_acceptance(self):
         for stack in self.stacks:
@@ -114,8 +150,12 @@ class ProjectSuiteTests(unittest.TestCase):
             with self.subTest(stack=stack):
                 f, _ = self.prepare(stack)
                 with self.assertRaisesRegex(devcrew_phase.PhaseError, "VERIFICATION_PLAN_CHANGED"):
-                    f.make_candidate(binding_overrides={f.manifest["phases"][0]["verification"][0]: ["true"]},
-                                     run_check_override=lambda *_: self.fail("must not execute substituted argv"))
+                    f.make_candidate(
+                        binding_overrides={f.manifest["phases"][0]["verification"][0]: ["true"]},
+                        run_check_override=lambda *_: self.fail(
+                            "must not execute substituted argv"
+                        ),
+                    )
                 self.assertEqual(f.git(f.task, "rev-parse", "HEAD"), f.base)
 
     def test_each_stack_rejects_failed_required_evidence(self):
@@ -126,13 +166,16 @@ class ProjectSuiteTests(unittest.TestCase):
                 if stack == "unittest":
                     (f.task / "tests/test_fixture_gate.py").write_text(
                         "import unittest\nclass FailedTest(unittest.TestCase):\n"
-                        "    def test_failure(self): self.fail('required test failed')\n")
+                        "    def test_failure(self): self.fail('required test failed')\n"
+                    )
                 else:
                     (f.task / "one.txt").write_text("fail\n")
                 result, failed = self.record(f, argv)
                 self.assertEqual(result["status"], "failed")
                 with self.assertRaisesRegex(devcrew_phase.PhaseError, "INVALID_PHASE_EVIDENCE"):
-                    devcrew_phase._verify_acceptance_evidence([failed], f.host, f.task, "T01", candidate, f.verifier)
+                    devcrew_phase._verify_acceptance_evidence(
+                        [failed], f.host, f.task, "T01", candidate, f.verifier
+                    )
 
     def test_each_stack_rejects_stale_candidate_evidence_at_acceptance(self):
         for stack in self.stacks:
@@ -161,7 +204,11 @@ class ProjectSuiteTests(unittest.TestCase):
                     ("environment_sha256", "0" * 64, "REQUIRED_CHECK_MISSING"),
                     ("started_at", "2000-01-01T00:00:00+00:00", "REQUIRED_CHECK_MISSING"),
                     ("git_head_before", "0" * len(candidate["sha"]), "STALE_PHASE_EVIDENCE"),
-                    ("candidate_tree_before", "0" * len(candidate["tree"]), "STALE_ACCEPTANCE_EVIDENCE"),
+                    (
+                        "candidate_tree_before",
+                        "0" * len(candidate["tree"]),
+                        "STALE_ACCEPTANCE_EVIDENCE",
+                    ),
                 ):
                     with self.subTest(field=key):
                         record.write_text(json.dumps({**data, key: value}))

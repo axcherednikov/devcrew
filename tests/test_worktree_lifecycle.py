@@ -2,13 +2,12 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-import shutil
 from unittest import mock
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "devcrew.py"
@@ -31,12 +30,24 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.base = self.git("rev-parse", "HEAD").stdout.strip()
 
     def git(self, *args, cwd=None):
-        return subprocess.run(["git", "-C", str(cwd or self.project), *args],
-                              text=True, capture_output=True, check=True)
+        return subprocess.run(
+            ["git", "-C", str(cwd or self.project), *args],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
 
     def cli(self, operation, task="T01", base=None):
-        args = [sys.executable, str(CLI), "task-worktree", operation,
-                "--project", str(self.project), "--task-id", task]
+        args = [
+            sys.executable,
+            str(CLI),
+            "task-worktree",
+            operation,
+            "--project",
+            str(self.project),
+            "--task-id",
+            task,
+        ]
         if operation == "create":
             args += ["--worktree-request", "Use a worktree for this task"]
         if base is not None:
@@ -81,7 +92,9 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(receipt["status"], "DIRTY")
         self.assertTrue(receipt["dirty"])
-        self.assertEqual(self.git("status", "--porcelain", "--untracked-files=all", cwd=path).stdout, before)
+        self.assertEqual(
+            self.git("status", "--porcelain", "--untracked-files=all", cwd=path).stdout, before
+        )
 
     def test_multiple_tasks_get_distinct_worktrees(self):
         one, two = self.create("T01"), self.create("T02")
@@ -98,12 +111,16 @@ class TaskWorktreeLifecycle(unittest.TestCase):
             return original(project, *args, **kwargs)
 
         with mock.patch.object(devcrew_worktree, "_git", side_effect=recording_git):
-            root, common, identity, path, branch, state = devcrew_worktree.location(self.project, "T_META")
+            root, common, identity, path, branch, state = devcrew_worktree.location(
+                self.project, "T_META"
+            )
 
         rev_parse_calls = [args for args in calls if args[:1] == ("rev-parse",)]
         self.assertEqual(len(rev_parse_calls), 1)
-        self.assertEqual(rev_parse_calls[0][1:], ("--path-format=absolute", "--show-toplevel",
-                                                   "--git-common-dir", "--absolute-git-dir"))
+        self.assertEqual(
+            rev_parse_calls[0][1:],
+            ("--path-format=absolute", "--show-toplevel", "--git-common-dir", "--absolute-git-dir"),
+        )
         self.assertEqual(root, self.project.resolve())
         self.assertEqual(common, self.project.resolve() / ".git")
         self.assertTrue(identity)
@@ -138,10 +155,21 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         with mock.patch.object(devcrew_worktree, "_git", side_effect=recording_git):
             receipt = devcrew_worktree.resolve(self.project, "T_RESOLVE_BATCH", read_only=True)
 
-        linked_rev_parse = [args for project, args in calls
-                            if project == path and args[:1] == ("rev-parse",)]
-        self.assertEqual(linked_rev_parse, [("rev-parse", "--path-format=absolute",
-                                             "--show-toplevel", "--git-common-dir", "HEAD")])
+        linked_rev_parse = [
+            args for project, args in calls if project == path and args[:1] == ("rev-parse",)
+        ]
+        self.assertEqual(
+            linked_rev_parse,
+            [
+                (
+                    "rev-parse",
+                    "--path-format=absolute",
+                    "--show-toplevel",
+                    "--git-common-dir",
+                    "HEAD",
+                )
+            ],
+        )
         self.assertEqual(receipt["state"], "RESOLVED")
 
     def test_linked_metadata_falls_back_for_newline_path_and_git_overrides(self):
@@ -149,14 +177,21 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         newline_repo.mkdir()
         subprocess.run(["git", "-C", str(newline_repo), "init", "-q"], check=True)
         subprocess.run(["git", "-C", str(newline_repo), "config", "user.name", "Test"], check=True)
-        subprocess.run(["git", "-C", str(newline_repo), "config", "user.email", "test@example.com"], check=True)
+        subprocess.run(
+            ["git", "-C", str(newline_repo), "config", "user.email", "test@example.com"], check=True
+        )
         (newline_repo / "tracked.txt").write_text("base\n")
         subprocess.run(["git", "-C", str(newline_repo), "add", "tracked.txt"], check=True)
         subprocess.run(["git", "-C", str(newline_repo), "commit", "-qm", "base"], check=True)
-        base = subprocess.run(["git", "-C", str(newline_repo), "rev-parse", "HEAD"],
-                              check=True, capture_output=True, text=True).stdout.strip()
-        receipt = devcrew_worktree.create(newline_repo, "T_LINKED_NEWLINE", base,
-                                          worktree_request="Use a worktree for this task")
+        base = subprocess.run(
+            ["git", "-C", str(newline_repo), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        receipt = devcrew_worktree.create(
+            newline_repo, "T_LINKED_NEWLINE", base, worktree_request="Use a worktree for this task"
+        )
         linked = pathlib.Path(receipt["task_worktree_root"])
         original = devcrew_worktree._git
         calls = []
@@ -171,8 +206,12 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertEqual(linked_data[0], linked.resolve())
 
         calls.clear()
-        git_dir = subprocess.run(["git", "-C", str(linked), "rev-parse", "--absolute-git-dir"],
-                                 check=True, capture_output=True, text=True).stdout.strip()
+        git_dir = subprocess.run(
+            ["git", "-C", str(linked), "rev-parse", "--absolute-git-dir"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
         with mock.patch.dict(os.environ, {"GIT_DIR": git_dir, "GIT_WORK_TREE": str(linked)}):
             with mock.patch.object(devcrew_worktree, "_git", side_effect=recording_git):
                 devcrew_worktree._linked_repository_details(linked, read_only=True)
@@ -232,7 +271,9 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertEqual(pathlib.Path(receipt["task_worktree_root"]), path)
         self.assertEqual(receipt["branch"], "codex/tasks/T01")
         self.assertEqual(receipt["head"], self.base)
-        self.assertEqual(self.git("branch", "--show-current", cwd=path).stdout.strip(), "codex/tasks/T01")
+        self.assertEqual(
+            self.git("branch", "--show-current", cwd=path).stdout.strip(), "codex/tasks/T01"
+        )
         result, resolved = self.cli("resolve")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(resolved["state"], "RESOLVED")
@@ -248,7 +289,9 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         result, receipt = self.cli("resolve")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(receipt["status"], "TASK_WORKTREE_RECREATED")
-        self.assertEqual(self.git("branch", "--show-current", cwd=path).stdout.strip(), "codex/tasks/T01")
+        self.assertEqual(
+            self.git("branch", "--show-current", cwd=path).stdout.strip(), "codex/tasks/T01"
+        )
         entries = self.git("worktree", "list", "--porcelain").stdout
         self.assertIn(f"worktree {unrelated.resolve()}\n", entries)
         self.assertIn("locked", entries)
@@ -266,13 +309,15 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertIn("locked", after)
 
     def test_resolve_rejects_task_branch_ref_that_differs_from_linked_head(self):
-        path = self.create()
+        self.create()
         newer = self.project / "later.txt"
         newer.write_text("later\n")
         self.git("add", "later.txt")
         self.git("commit", "-qm", "later")
         new_head = self.git("rev-parse", "HEAD").stdout.strip()
-        common = pathlib.Path(self.git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
+        common = pathlib.Path(
+            self.git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+        )
         (common / "refs" / "heads" / "codex" / "tasks" / "T01").write_text(new_head + "\n")
         result, _ = self.cli("resolve")
         self.assertNotEqual(result.returncode, 0)
@@ -292,7 +337,7 @@ class TaskWorktreeLifecycle(unittest.TestCase):
         self.assertFalse((path / "main-only.txt").exists())
 
     def test_missing_worktree_without_clean_proof_fails_closed(self):
-        path = self.expected_path("T01")
+        self.expected_path("T01")
         self.git("branch", "codex/tasks/T01", self.base)
         result, receipt = self.cli("resolve")
         self.assertNotEqual(result.returncode, 0)

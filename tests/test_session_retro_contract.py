@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SESSION = (ROOT / "skills/devcrew-session/SKILL.md").read_text()
 HARVEST = (ROOT / "skills/devcrew-task/references/session-harvest.md").read_text()
@@ -32,8 +31,14 @@ class SessionRetroContract(unittest.TestCase):
     def test_claims_require_evidence_and_bounded_sources(self):
         self.assertIn("Do not invent a retro file", HARVEST)
         self.assertIn("Do not search the repository", HARVEST)
-        for source in ("task or epic plan/card", "session snapshot", "review reports",
-                       "verification/check records", "verified diff", "confirmed blockers"):
+        for source in (
+            "task or epic plan/card",
+            "session snapshot",
+            "review reports",
+            "verification/check records",
+            "verified diff",
+            "confirmed blockers",
+        ):
             with self.subTest(source=source):
                 self.assertIn(source, HARVEST)
 
@@ -43,9 +48,15 @@ class SessionRetroContract(unittest.TestCase):
 
     def test_loops_require_cycles_and_evidence_backed_cause(self):
         self.assertIn("observed cycles", HARVEST)
-        for cause in ("unclear requirement", "missed invariant", "handoff gap",
-                      "weak self-check", "wrong seam", "insufficient test",
-                      "noisy reviewer rule"):
+        for cause in (
+            "unclear requirement",
+            "missed invariant",
+            "handoff gap",
+            "weak self-check",
+            "wrong seam",
+            "insufficient test",
+            "noisy reviewer rule",
+        ):
             with self.subTest(cause=cause):
                 self.assertIn(cause, HARVEST)
 
@@ -54,8 +65,13 @@ class SessionRetroContract(unittest.TestCase):
         self.assertIn("A durable lesson must state", HARVEST)
 
     def test_memory_dedupes_policy_instructions_and_existing_lessons(self):
-        for term in ("configured memory index", "engineering policy",
-                     "applicable project instructions", "existing lessons", "not already covered"):
+        for term in (
+            "configured memory index",
+            "engineering policy",
+            "applicable project instructions",
+            "existing lessons",
+            "not already covered",
+        ):
             with self.subTest(term=term):
                 self.assertIn(term, HARVEST)
         self.assertIn("memory lifecycle", HARVEST)
@@ -72,7 +88,13 @@ class SessionRetroContract(unittest.TestCase):
         self.assertIn("Do not search the repository", HARVEST)
 
     def test_marker_states_have_distinct_followup_behavior(self):
-        for state in ("`TRIGGERED`", "`NOT_TRIGGERED`", "`UNKNOWN`", "`MALFORMED`", "`PROTECTED_VIOLATION`"):
+        for state in (
+            "`TRIGGERED`",
+            "`NOT_TRIGGERED`",
+            "`UNKNOWN`",
+            "`MALFORMED`",
+            "`PROTECTED_VIOLATION`",
+        ):
             with self.subTest(state=state):
                 self.assertIn(state, HARVEST)
         triggered = HARVEST.split("`TRIGGERED`:", 1)[1].split("\n- `NOT_TRIGGERED`:", 1)[0]
@@ -88,8 +110,12 @@ class SessionRetroContract(unittest.TestCase):
         self.assertIn("Minimal Diff must never defer or remove", POLICY)
 
     def test_no_automatic_external_backlog_or_scope_expansion(self):
-        for forbidden in ("never creates external issues/tracker tasks", "expands an epic/product scope",
-                          "starts implementation", "creates a follow-up agent"):
+        for forbidden in (
+            "never creates external issues/tracker tasks",
+            "expands an epic/product scope",
+            "starts implementation",
+            "creates a follow-up agent",
+        ):
             with self.subTest(forbidden=forbidden):
                 self.assertIn(forbidden, HARVEST)
         self.assertIn("explicit request", HARVEST)

@@ -1,6 +1,5 @@
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TASK = ROOT / "skills/devcrew-task"
@@ -23,7 +22,9 @@ class EngineeringAutonomyContract(unittest.TestCase):
 
     def test_sufficient_facts_lead_to_an_internal_choice_preserving_original_behavior(self):
         for phrase in (
-            "confirmed facts", "engineering conclusions", "unverified hypotheses",
+            "confirmed facts",
+            "engineering conclusions",
+            "unverified hypotheses",
             "research feasible options, choose an evidence-backed solution",
             "Do not delegate an internal implementation choice to the user",
             "confirmed original behavior is the compatibility baseline",
@@ -41,20 +42,31 @@ class EngineeringAutonomyContract(unittest.TestCase):
 
     def test_material_uncertainty_or_risk_stops_dependent_work_for_a_recommended_question(self):
         for phrase in (
-            "unresolved requirements", "data preservation", "security",
-            "significant irreversible consequences", "stop dependent work",
-            "explain the concrete risk", "ask a specific question with a recommended option",
+            "unresolved requirements",
+            "data preservation",
+            "security",
+            "significant irreversible consequences",
+            "stop dependent work",
+            "explain the concrete risk",
+            "ask a specific question with a recommended option",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, self.policy)
         self.assertIn("significant unresolved risk", self.questions)
         self.assertIn("recommended option", self.questions)
-        self.assertIn("data preservation, security, or significant irreversible consequences", self.communication)
+        self.assertIn(
+            "data preservation, security, or significant irreversible consequences",
+            self.communication,
+        )
         self.assertNotIn("only for a matter of product preference", self.communication)
 
-    def test_planning_and_communication_do_not_promote_engineering_choices_to_user_requirements(self):
+    def test_planning_and_communication_do_not_promote_engineering_choices_to_user_requirements(
+        self,
+    ):
         self.assertIn("engineering-policy.md", self.brief)
-        self.assertIn("An engineering recommendation is not a confirmed user requirement", self.policy)
+        self.assertIn(
+            "An engineering recommendation is not a confirmed user requirement", self.policy
+        )
         self.assertIn("A recommendation remains a recommendation", self.questions)
         self.assertIn("engineering conclusion", self.provenance)
         self.assertIn("does not become a user requirement", self.provenance)
@@ -66,11 +78,15 @@ class EngineeringAutonomyContract(unittest.TestCase):
         template = read(BRIEF / "references/template-main.md")
         self.assertIn("the facts, the engineering conclusion, and its rationale", template)
         self.assertNotIn("Only immaterial, safe assumptions", template)
-        self.assertNotIn("security or architectural decisions are an open question for the user", self.provenance)
+        self.assertNotIn(
+            "security or architectural decisions are an open question for the user", self.provenance
+        )
         self.assertNotIn("security or an architectural decision, do not guess", self.task)
 
     def test_autonomy_preserves_existing_safety_acceptance_and_role_boundaries(self):
-        self.assertIn("does not override safety, scope, role boundaries or the loop guard", self.policy)
+        self.assertIn(
+            "does not override safety, scope, role boundaries or the loop guard", self.policy
+        )
         self.assertIn("Minimal Diff must never defer or remove", self.policy)
         self.assertIn("necessary data-loss prevention", self.policy)
         self.assertIn("do not guess or turn a guess into a test expectation", self.task)
@@ -81,7 +97,10 @@ class EngineeringAutonomyContract(unittest.TestCase):
         self.assertIn("cannot change acceptance criteria", replan)
         self.assertIn("do not dispatch the executor to choose", replan)
         guard = read(TASK / "references/loop-guard.md")
-        self.assertIn("It takes precedence over automatic local-fix, replan, escalation and retry rules", guard)
+        self.assertIn(
+            "It takes precedence over automatic local-fix, replan, escalation and retry rules",
+            guard,
+        )
 
 
 if __name__ == "__main__":

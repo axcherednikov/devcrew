@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BRIEF = ROOT / "skills" / "devcrew-brief"
 AUTOPILOT = ROOT / "skills" / "devcrew-autopilot" / "SKILL.md"
@@ -30,18 +29,25 @@ class BriefContract(unittest.TestCase):
         self.assertIn("Wait for prerequisites before asking dependent questions", self.questions)
 
     def test_frontier_is_recomputed_after_each_answer(self):
-        self.assertIn("After each answer, record the confirmed decision, recompute the graph", self.questions)
+        self.assertIn(
+            "After each answer, record the confirmed decision, recompute the graph", self.questions
+        )
 
     def test_irrelevant_follow_up_is_removed(self):
         self.assertIn("remove questions that no longer apply", self.questions)
 
     def test_repository_evidence_precedes_user_questions(self):
-        self.assertIn("First check code, tests, manifests, configuration, ADRs, domain documentation, CI and existing contracts", self.questions)
+        self.assertIn(
+            "First check code, tests, manifests, configuration, ADRs, domain documentation, CI and existing contracts",
+            self.questions,
+        )
         self.assertIn("Repository evidence before user questions", self.skill)
 
     def test_recommendation_needs_confirmation(self):
         self.assertIn("A recommendation remains a recommendation", self.questions)
-        self.assertIn("recommendation without owner confirmation is not a requirement", self.autopilot)
+        self.assertIn(
+            "recommendation without owner confirmation is not a requirement", self.autopilot
+        )
 
     def test_independent_planning_and_autopilot_branches_continue(self):
         self.assertIn("Continue independent planning work", self.questions)
@@ -77,7 +83,12 @@ class BriefContract(unittest.TestCase):
         self.assertIn("independent READY branches", self.autopilot)
 
     def test_final_brief_has_explicit_decision_sections(self):
-        for section in ("CONFIRMED DECISIONS", "OPEN MATERIAL QUESTIONS", "IMPLEMENTATION ASSUMPTIONS", "ADR STATUS"):
+        for section in (
+            "CONFIRMED DECISIONS",
+            "OPEN MATERIAL QUESTIONS",
+            "IMPLEMENTATION ASSUMPTIONS",
+            "ADR STATUS",
+        ):
             with self.subTest(section=section):
                 self.assertIn(section, self.skill)
                 self.assertIn(section, self.handoff)
